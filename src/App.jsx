@@ -3,7 +3,7 @@ import {
   Plus, ArrowLeft, Edit2, Trash2, LayoutGrid, List, Search,
   CheckCircle2, Circle, Download, X, ChevronLeft, ChevronRight,
   Image as ImageIcon, FileText, Shield, ShieldOff, SortAsc, SortDesc,
-  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut
+  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Menu
 } from "lucide-react";
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
@@ -120,20 +120,21 @@ function dataURLToFile(dataURL, filename) {
   return new File([blob], filename, { type: blob.type });
 }
 
-// ── Theme (dark museum) ───────────────────────────────────────
+// ── Theme (dark museum with cyan accents) ─────────────────────
 const T = {
   bg:      "#0d0c0a",
   s1:      "#171612",
   s2:      "#1e1d18",
   s3:      "#27261f",
   border:  "#35332a",
-  gold:    "#c9a84c",
-  goldDim: "#7a6622",
+  accent:  "#3fc1c9",
   cream:   "#f0e6d2",
   dim:     "#8a8070",
   dim2:    "#5a5448",
   green:   "#3a8050",
   red:     "#b03535",
+  cyan:    "#3fc1c9",
+  blue:    "#7ec8e3",
 };
 
 // ── Small reusable components ─────────────────────────────────
@@ -146,7 +147,7 @@ function Btn({ children, onClick, variant = "outline", disabled, style: sx, ...p
     transition: "all 0.18s", border: "none", outline: "none", opacity: disabled ? 0.55 : 1,
   };
   const variants = {
-    primary: { background: T.gold, color: T.bg, fontWeight: 600 },
+    primary: { background: T.accent, color: T.bg, fontWeight: 600 },
     outline: { background: "transparent", color: T.cream, border: `1px solid ${T.border}` },
     ghost:   { background: "transparent", color: T.dim,   border: "none" },
     danger:  { background: "transparent", color: T.red,   border: `1px solid ${T.red}40` },
@@ -182,8 +183,8 @@ function Input({ value, onChange, placeholder, type = "text", ...rest }) {
         borderRadius: 4, padding: "9px 12px", fontSize: "0.95rem", fontFamily: "inherit",
         outline: "none", colorScheme: "dark",
       }}
-      onFocus={e => e.target.style.borderColor = T.gold}
-      onBlur={e => e.target.style.borderColor = T.border}
+onFocus={e => e.target.style.borderColor = T.cyan}
+                    onBlur={e => e.target.style.borderColor = T.border}
       {...rest}
     />
   );
@@ -211,8 +212,8 @@ function Textarea({ value, onChange, placeholder, rows = 4 }) {
         borderRadius: 4, padding: "9px 12px", fontSize: "0.95rem", fontFamily: "inherit",
         outline: "none", resize: "vertical",
       }}
-      onFocus={e => e.target.style.borderColor = T.gold}
-      onBlur={e => e.target.style.borderColor = T.border}
+onFocus={e => e.target.style.borderColor = T.cyan}
+                    onBlur={e => e.target.style.borderColor = T.border}
     />
   );
 }
@@ -234,6 +235,7 @@ export default function ArtVault() {
   const [fileErr,  setFileErr]  = useState("");
   const [exporting, setExporting] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Form state
   const [editWork, setEditWork] = useState(null);
@@ -313,7 +315,7 @@ export default function ArtVault() {
   }, [works]);
 
   // ── Navigation ───────────────────────────────────────────────
-  const goGallery = () => setScreen("gallery");
+  const goGallery = () => { setScreen("gallery"); setMenuOpen(false); };
 
   const openAdd = () => {
     setEditWork(null); setForm(BLANK); setFormTab("info");
@@ -643,8 +645,9 @@ export default function ArtVault() {
   // ── Auth guard ─────────────────────────────────────────────────
   if (authLoading) {
     return (
-      <div style={{ background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: T.gold, fontStyle: "italic", letterSpacing: "0.1em" }}>Chargement…</div>
+      <div style={{ background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');`}</style>
+        <div style={{ color: T.cyan, fontStyle: "italic", letterSpacing: "0.1em" }}>Chargement…</div>
       </div>
     );
   }
@@ -655,19 +658,21 @@ export default function ArtVault() {
 
   // ── Render ────────────────────────────────────────────────────
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", color: T.cream, fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "1rem" }}>
+<div style={{ background: T.bg, minHeight: "100vh", color: T.cream, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: "1.05rem" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Elms+Sans:wght@700&family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;500;600&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: ${T.bg}; }
+        body { background: ${T.bg}; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: ${T.bg}; }
         ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
         .art-card { transition: transform 0.2s, box-shadow 0.2s; }
         .art-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important; }
         .tab-btn:hover { color: ${T.cream} !important; }
-        .ghost-btn:hover { color: ${T.gold} !important; }
+        .ghost-btn:hover { color: ${T.cyan} !important; }
         .row-hover:hover { background: ${T.s3} !important; }
+        @media (max-width: 768px) { .desk-only { display: none !important; } .resp-grid { grid-template-columns: 1fr !important; } .resp-cols { grid-template-columns: 1fr !important; } .resp-gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; } }
+        @media (min-width: 769px) { .mob-only { display: none !important; } }
       `}</style>
 
       {/* ── NAV ────────────────────────────────────────────────── */}
@@ -676,19 +681,19 @@ export default function ArtVault() {
           {(screen === "form" || screen === "detail") && (
             <button className="ghost-btn" onClick={goGallery}
               style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex", alignItems: "center", padding: 4, transition: "color 0.2s" }}>
-              <ArrowLeft size={20} />
+              <ArrowLeft size={22} />
             </button>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, background: T.gold, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: T.bg, fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.05em" }}>AV</span>
+            <div style={{ width: 28, height: 28, background: T.accent, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: T.bg, fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.05em", fontFamily: "'Elms Sans', sans-serif" }}>AV</span>
             </div>
-            <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.2rem", fontWeight: 500, color: T.gold, letterSpacing: "0.04em" }}>
+            <h1 style={{ fontFamily: "'Elms Sans', sans-serif", fontSize: "1.4rem", fontWeight: 600, color: T.accent, letterSpacing: "0.04em" }}>
               ArtVault
             </h1>
           </div>
           {screen === "gallery" && (
-            <span style={{ color: T.dim2, fontSize: "0.82rem", marginLeft: 2 }}>
+            <span style={{ color: T.cream, fontSize: "0.82rem", marginLeft: 2, borderLeft: `1px solid ${T.border}`, paddingLeft: 12 }}>
               {works.length} {works.length === 1 ? "œuvre" : "œuvres"} · {eur(totalCurrent)}
             </span>
           )}
@@ -704,32 +709,33 @@ export default function ArtVault() {
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {/* ── RIGHT NAV ─────────────────────────────────────── */}
+        <div className="desk-only" style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {screen === "gallery" && (
             <>
               <button className="ghost-btn" onClick={() => setGridMode(true)}
-                style={{ background: "none", border: "none", color: gridMode ? T.gold : T.dim, cursor: "pointer", padding: 6, transition: "color 0.2s", display: "flex" }}>
-                <LayoutGrid size={18} />
+                style={{ background: "none", border: "none", color: gridMode ? T.accent : T.dim, cursor: "pointer", padding: 6, transition: "color 0.2s", display: "flex" }}>
+                <LayoutGrid size={20} />
               </button>
               <button className="ghost-btn" onClick={() => setGridMode(false)}
-                style={{ background: "none", border: "none", color: !gridMode ? T.gold : T.dim, cursor: "pointer", padding: 6, transition: "color 0.2s", display: "flex" }}>
-                <List size={18} />
+                style={{ background: "none", border: "none", color: !gridMode ? T.accent : T.dim, cursor: "pointer", padding: 6, transition: "color 0.2s", display: "flex" }}>
+                <List size={20} />
               </button>
               <button className="ghost-btn" onClick={handleExportPDF} disabled={pdfLoading || works.length === 0}
                 style={{ background: "none", border: "none", color: T.dim, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: 6, display: "flex", transition: "color 0.2s", opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}
                 title="Export PDF catalogue">
-                <FileText size={17} />
+                <FileText size={19} />
               </button>
               <button className="ghost-btn" onClick={handleExport} disabled={exporting || works.length === 0}
                 style={{ background: "none", border: "none", color: T.dim, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: 6, display: "flex", transition: "color 0.2s", opacity: exporting || works.length === 0 ? 0.5 : 1 }}
                 title="Export ZIP collection">
-                <Archive size={18} />
+                <Archive size={20} />
               </button>
               <div style={{ width: 1, height: 20, background: T.border, margin: "0 4px" }} />
               <button className="ghost-btn" onClick={handleLogout}
                 style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: 6, display: "flex", transition: "color 0.2s" }}
                 title="Déconnexion">
-                <LogOut size={17} />
+                <LogOut size={19} />
               </button>
             </>
           )}
@@ -750,13 +756,69 @@ export default function ArtVault() {
             </Btn>
           )}
         </div>
+
+        {/* ── MOBILE HAMBURGER ───────────────────────────────── */}
+        <button className="mob-only" onClick={() => setMenuOpen(o => !o)}
+          style={{ background: "none", border: "none", color: T.cream, cursor: "pointer", padding: 6, display: "flex" }}>
+          <Menu size={22} />
+        </button>
+
+        {/* ── MOBILE MENU OVERLAY ────────────────────────────── */}
+        {menuOpen && (
+          <>
+            <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 98 }} />
+            <div style={{ position: "fixed", top: 58, left: 0, right: 0, background: T.s1, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", zIndex: 99, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {screen === "gallery" && (
+              <>
+                <button className="ghost-btn" onClick={() => { setGridMode(true); setMenuOpen(false); }}
+                  style={{ background: "none", border: `1px solid ${gridMode ? T.accent : T.border}`, color: gridMode ? T.accent : T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
+                  <LayoutGrid size={18} /> Mode grille
+                </button>
+                <button className="ghost-btn" onClick={() => { setGridMode(false); setMenuOpen(false); }}
+                  style={{ background: "none", border: `1px solid ${!gridMode ? T.accent : T.border}`, color: !gridMode ? T.accent : T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
+                  <List size={18} /> Mode liste
+                </button>
+                <button className="ghost-btn" onClick={() => { handleExportPDF(); setMenuOpen(false); }} disabled={pdfLoading || works.length === 0}
+                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem", opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}>
+                  <FileText size={17} /> Export PDF
+                </button>
+                <button className="ghost-btn" onClick={() => { handleExport(); setMenuOpen(false); }} disabled={exporting || works.length === 0}
+                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem", opacity: exporting || works.length === 0 ? 0.5 : 1 }}>
+                  <Archive size={18} /> Export ZIP
+                </button>
+                <button className="ghost-btn" onClick={() => { handleLogout(); setMenuOpen(false); }}
+                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
+                  <LogOut size={17} /> Déconnexion
+                </button>
+              </>
+            )}
+            {screen === "detail" && (
+              <>
+                <button className="ghost-btn" onClick={() => { openEdit(detWork); setMenuOpen(false); }}
+                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
+                  <Edit2 size={16} /> Modifier
+                </button>
+                <button className="ghost-btn" onClick={() => { setDelModal(true); setMenuOpen(false); }}
+                  style={{ background: "none", border: `1px solid ${T.red}40`, color: T.red, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
+                  <Trash2 size={16} /> Supprimer
+                </button>
+              </>
+            )}
+            {screen === "form" && (
+              <Btn variant="primary" onClick={() => { handleSave(); setMenuOpen(false); }} disabled={saving} sx={{ width: "100%" }}>
+                <Save size={16} /> {saving ? "Enregistrement…" : editWork ? "Mettre à jour" : "Enregistrer"}
+              </Btn>
+            )}
+          </div>
+          </>
+        )}
       </nav>
 
       {/* ── SEARCH / SORT BAR ────────────────────────────────── */}
       {screen === "gallery" && (
         <div style={{ background: T.s1, borderBottom: `1px solid ${T.border}`, padding: "10px 20px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 160, maxWidth: 380, position: "relative", display: "flex", alignItems: "center" }}>
-            <Search size={15} style={{ position: "absolute", left: 10, color: T.dim, pointerEvents: "none" }} />
+            <Search size={17} style={{ position: "absolute", left: 10, color: T.dim, pointerEvents: "none" }} />
             <input
               placeholder="Rechercher…"
               value={search} onChange={e => setSearch(e.target.value)}
@@ -771,14 +833,14 @@ export default function ArtVault() {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {[["artist","Artiste"],["title","Titre"],["value_current","Valeur"],["location_storage","Lieu"],["is_insured","Assurée"]].map(([f, l]) => (
               <button key={f} onClick={() => toggleSort(f)} className="ghost-btn"
-                style={{ background: "none", border: `1px solid ${sortField === f ? T.gold : T.border}`, color: sortField === f ? T.gold : T.dim, borderRadius: 3, padding: "5px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, transition: "all 0.18s" }}>
+                style={{ background: "none", border: `1px solid ${sortField === f ? T.cyan : T.border}`, color: sortField === f ? T.cyan : T.dim, borderRadius: 3, padding: "5px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, transition: "all 0.18s" }}>
                 {l}
                 {sortField === f && (sortDir === "asc" ? <SortAsc size={12} /> : <SortDesc size={12} />)}
               </button>
             ))}
           </div>
           {(exporting || pdfLoading) && (
-            <span style={{ color: T.gold, fontSize: "0.82rem", fontStyle: "italic" }}>
+            <span style={{ color: T.accent, fontSize: "0.82rem", fontStyle: "italic" }}>
               {pdfLoading ? "Génération du PDF…" : "Export en cours…"}
             </span>
           )}
@@ -787,7 +849,7 @@ export default function ArtVault() {
 
       {/* ── LOADING ──────────────────────────────────────────── */}
       {loading && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", paddingTop: 100, color: T.gold, fontStyle: "italic", letterSpacing: "0.1em" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", paddingTop: 100, color: T.accent, fontStyle: "italic", letterSpacing: "0.1em" }}>
           Chargement de la collection…
         </div>
       )}
@@ -803,7 +865,7 @@ export default function ArtVault() {
                 { label: "Assurées", value: `${insuredCount} / ${works.length}`, icon: <Shield size={16} /> },
                 { label: "Artistes", value: new Set(works.map(w => w.artist).filter(Boolean)).size, icon: <Tag size={16} /> },
               ].map(({ label, value, icon }) => (
-                <div key={label} style={{ background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 16px" }}>
+                <div key={label} style={{ background: T.s2, border: `1px solid ${label === "Valeur totale" ? T.cyan + "60" : T.border}`, borderLeft: `3px solid ${label === "Valeur totale" ? T.cyan : "transparent"}`, borderRadius: 6, padding: "12px 16px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.dim, fontSize: "0.78rem", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {icon} {label}
                   </div>
@@ -818,7 +880,7 @@ export default function ArtVault() {
               {works.length === 0 ? "La collection est vide. Ajoutez votre première œuvre ↓" : "Aucun résultat."}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
+            <div className="resp-gallery" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
               {filtered.map(w => (
                 <div key={w.id} className="art-card" onClick={() => openDetail(w)}
                   style={{ background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>
@@ -829,12 +891,12 @@ export default function ArtVault() {
                     }
                   </div>
                   <div style={{ padding: "14px 15px" }}>
-                    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1rem", color: T.cream, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "1.15rem", color: T.cream, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {w.title || "Sans titre"}
                     </div>
                     <div style={{ color: T.dim, fontSize: "0.88rem", marginBottom: 8, fontStyle: "italic" }}>{w.artist || "Artiste inconnu"}</div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: T.gold, fontSize: "0.9rem" }}>
+                      <span style={{ color: T.accent, fontSize: "0.9rem" }}>
                         {eur(w.value_current || w.value_purchase)}
                       </span>
                       <span style={{ color: w.is_insured ? T.green : T.dim2, fontSize: "0.78rem", display: "flex", alignItems: "center", gap: 3 }}>
@@ -864,14 +926,14 @@ export default function ArtVault() {
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
               <thead>
-                <tr style={{ borderBottom: `1px solid ${T.gold}40` }}>
+                <tr style={{ borderBottom: `1px solid ${T.accent}40` }}>
                   {[
                     ["artist","Artiste"], ["title","Titre"], ["technique","Technique"],
                     ["date_work","Date"], ["location_storage","Lieu"],
                     ["value_purchase","Achat"], ["value_current","Valeur act."], ["is_insured","Ass."]
                   ].map(([f, l]) => (
                     <th key={f} onClick={() => toggleSort(f)}
-                      style={{ textAlign: "left", padding: "10px 12px", color: sortField === f ? T.gold : T.dim, fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase", fontSize: "0.75rem", cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+                      style={{ textAlign: "left", padding: "10px 12px", color: sortField === f ? T.accent : T.dim, fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase", fontSize: "0.75rem", cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                         {l} {sortField === f && (sortDir === "asc" ? "↑" : "↓")}
                       </span>
@@ -884,12 +946,12 @@ export default function ArtVault() {
                   <tr key={w.id} className="row-hover" onClick={() => openDetail(w)}
                     style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer", background: i % 2 === 0 ? "transparent" : T.s1, transition: "background 0.15s" }}>
                     <td style={{ padding: "10px 12px", color: T.cream, fontStyle: "italic" }}>{w.artist || "—"}</td>
-                    <td style={{ padding: "10px 12px", fontFamily: "'Playfair Display', Georgia, serif" }}>{w.title || "—"}</td>
+                    <td style={{ padding: "10px 12px" }}>{w.title || "—"}</td>
                     <td style={{ padding: "10px 12px", color: T.dim }}>{w.technique || "—"}</td>
                     <td style={{ padding: "10px 12px", color: T.dim }}>{w.date_work || "—"}</td>
                     <td style={{ padding: "10px 12px", color: T.dim }}>{w.location_storage || "—"}</td>
                     <td style={{ padding: "10px 12px", color: T.dim }}>{eur(w.value_purchase)}</td>
-                    <td style={{ padding: "10px 12px", color: T.gold }}>{eur(w.value_current)}</td>
+                    <td style={{ padding: "10px 12px", color: T.accent }}>{eur(w.value_current)}</td>
                     <td style={{ padding: "10px 12px", textAlign: "center" }}>
                       {w.is_insured ? <CheckCircle2 size={15} color={T.green} /> : <Circle size={15} color={T.border} />}
                     </td>
@@ -908,7 +970,7 @@ export default function ArtVault() {
           <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 28, overflowX: "auto" }}>
             {[["info","Informations"],["dims","Dimensions"],["finance","Finance"],["docs","Documents"],["photos","Photos"]].map(([t, l]) => (
               <button key={t} className="tab-btn" onClick={() => setFormTab(t)}
-                style={{ background: "none", border: "none", borderBottom: `2px solid ${formTab === t ? T.gold : "transparent"}`, color: formTab === t ? T.gold : T.dim, padding: "10px 20px", fontSize: "0.88rem", letterSpacing: "0.07em", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "color 0.18s" }}>
+                style={{ background: "none", border: "none", borderBottom: `2px solid ${formTab === t ? T.cyan : "transparent"}`, color: formTab === t ? T.cyan : T.dim, padding: "10px 20px", fontSize: "0.88rem", letterSpacing: "0.07em", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "color 0.18s" }}>
                 {l}
               </button>
             ))}
@@ -923,7 +985,7 @@ export default function ArtVault() {
           {/* ── Tab: Informations ─────────────────────────────── */}
           {formTab === "info" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <Field label="Artiste *">
                   <Input value={form.artist} onChange={v => setForm(f => ({ ...f, artist: v }))} placeholder="Nom de l'artiste" />
                 </Field>
@@ -957,7 +1019,7 @@ export default function ArtVault() {
           {/* ── Tab: Dimensions ──────────────────────────────── */}
           {formTab === "dims" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+              <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 <Field label="Largeur"><Input value={form.width} onChange={v => setForm(f => ({ ...f, width: v }))} type="number" placeholder="0" /></Field>
                 <Field label="Hauteur"><Input value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} type="number" placeholder="0" /></Field>
                 <Field label="Profondeur"><Input value={form.depth} onChange={v => setForm(f => ({ ...f, depth: v }))} type="number" placeholder="Optionnel" /></Field>
@@ -972,7 +1034,7 @@ export default function ArtVault() {
               </Field>
               {(form.width || form.height) && (
                 <div style={{ background: T.s3, border: `1px solid ${T.border}`, borderRadius: 4, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10, color: T.dim }}>
-                  <Ruler size={16} color={T.gold} />
+                  <Ruler size={16} color={T.accent} />
                   <span style={{ color: T.cream }}>
                     {form.width || "?"} × {form.height || "?"}{form.depth ? ` × ${form.depth}` : ""} {form.dimensionUnit}
                   </span>
@@ -990,7 +1052,7 @@ export default function ArtVault() {
               <Field label="Lieu d'achat">
                 <Input value={form.locationPurchase} onChange={v => setForm(f => ({ ...f, locationPurchase: v }))} placeholder="Galerie, Maison de vente, Vente privée…" />
               </Field>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <Field label="Valeur d'achat (€)">
                   <Input value={form.valuePurchase} onChange={v => setForm(f => ({ ...f, valuePurchase: v }))} type="number" placeholder="0" />
                 </Field>
@@ -1022,7 +1084,7 @@ export default function ArtVault() {
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               <div style={{ background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                  <FileText size={16} color={T.gold} />
+                  <FileText size={16} color={T.accent} />
                   <span style={{ color: T.cream, fontSize: "0.9rem" }}>Expertise</span>
                 </div>
                 {fExp ? (
@@ -1030,12 +1092,12 @@ export default function ArtVault() {
                     <FileText size={16} color={T.dim} />
                     <span style={{ flex: 1, color: T.cream, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.9rem" }}>{fExp.name}</span>
                     <a href={fExp._saved ? fExp.url : fExp.data} download={fExp.name} target="_blank" rel="noreferrer"
-                      style={{ color: T.gold, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> Ouvrir</a>
+                      style={{ color: T.accent, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> Ouvrir</a>
                     <button onClick={() => setFExp(null)} style={{ background: "none", border: "none", color: T.red, cursor: "pointer", display: "flex" }}><X size={16} /></button>
                   </div>
                 ) : (
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", color: T.dim, fontSize: "0.88rem", border: `1px dashed ${T.border}`, borderRadius: 4, padding: "10px 16px", transition: "border-color 0.2s, color 0.2s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; e.currentTarget.style.color = T.gold; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
                     <Plus size={15} /> Charger un PDF (max 5 MB)
                     <input ref={expRef} type="file" accept=".pdf,application/pdf" style={{ display: "none" }} onChange={e => addPDF(e, setFExp)} />
@@ -1045,7 +1107,7 @@ export default function ArtVault() {
 
               <div style={{ background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                  <FileText size={16} color={T.gold} />
+                  <FileText size={16} color={T.accent} />
                   <span style={{ color: T.cream, fontSize: "0.9rem" }}>Attestation / Certificat d'authenticité</span>
                 </div>
                 {fAtt ? (
@@ -1053,12 +1115,12 @@ export default function ArtVault() {
                     <FileText size={16} color={T.dim} />
                     <span style={{ flex: 1, color: T.cream, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.9rem" }}>{fAtt.name}</span>
                     <a href={fAtt._saved ? fAtt.url : fAtt.data} download={fAtt.name} target="_blank" rel="noreferrer"
-                      style={{ color: T.gold, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> Ouvrir</a>
+                      style={{ color: T.accent, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> Ouvrir</a>
                     <button onClick={() => setFAtt(null)} style={{ background: "none", border: "none", color: T.red, cursor: "pointer", display: "flex" }}><X size={16} /></button>
                   </div>
                 ) : (
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", color: T.dim, fontSize: "0.88rem", border: `1px dashed ${T.border}`, borderRadius: 4, padding: "10px 16px", transition: "border-color 0.2s, color 0.2s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; e.currentTarget.style.color = T.gold; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
                     <Plus size={15} /> Charger un PDF (max 5 MB)
                     <input ref={attRef} type="file" accept=".pdf,application/pdf" style={{ display: "none" }} onChange={e => addPDF(e, setFAtt)} />
@@ -1083,7 +1145,7 @@ export default function ArtVault() {
                       <X size={12} />
                     </button>
                     {i === 0 && (
-                      <span style={{ position: "absolute", bottom: 5, left: 5, background: T.gold, color: T.bg, fontSize: "0.65rem", padding: "2px 6px", borderRadius: 2, fontWeight: 700 }}>
+                      <span style={{ position: "absolute", bottom: 5, left: 5, background: T.accent, color: T.bg, fontSize: "0.65rem", padding: "2px 6px", borderRadius: 2, fontWeight: 700 }}>
                         Principale
                       </span>
                     )}
@@ -1091,7 +1153,7 @@ export default function ArtVault() {
                 ))}
                 {fPhotos.length < 5 && (
                   <label style={{ aspectRatio: "1", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.dim, fontSize: "0.82rem", gap: 6, transition: "border-color 0.2s, color 0.2s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; e.currentTarget.style.color = T.gold; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
                     <Plus size={24} />
                     <span>Ajouter</span>
@@ -1111,7 +1173,7 @@ export default function ArtVault() {
             <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "2rem", fontWeight: 500, color: T.cream, lineHeight: 1.2, marginBottom: 8 }}>
               {detWork.title || "Sans titre"}
             </h2>
-            <div style={{ color: T.gold, fontSize: "1.15rem", fontStyle: "italic", marginBottom: 10 }}>{detWork.artist}</div>
+            <div style={{ color: T.accent, fontSize: "1.15rem", fontStyle: "italic", marginBottom: 10 }}>{detWork.artist}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               {detWork.technique && <span style={{ background: T.s3, border: `1px solid ${T.border}`, color: T.dim, padding: "3px 10px", borderRadius: 12, fontSize: "0.82rem" }}>{detWork.technique}</span>}
               {detWork.date_work && <span style={{ color: T.dim, fontSize: "0.88rem", display: "flex", alignItems: "center", gap: 4 }}><Calendar size={13} /> {detWork.date_work}</span>}
@@ -1140,7 +1202,7 @@ export default function ArtVault() {
                     <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
                       {dPhotos.map((_, i) => (
                         <div key={i} onClick={() => setPIdx(i)}
-                          style={{ width: 8, height: 8, borderRadius: "50%", background: i === pIdx ? T.gold : "rgba(255,255,255,0.35)", cursor: "pointer", transition: "background 0.2s" }} />
+                          style={{ width: 8, height: 8, borderRadius: "50%", background: i === pIdx ? T.cyan : "rgba(255,255,255,0.35)", cursor: "pointer", transition: "background 0.2s" }} />
                       ))}
                     </div>
                   </>
@@ -1150,7 +1212,7 @@ export default function ArtVault() {
                 <div style={{ display: "flex", gap: 8, marginTop: 10, overflowX: "auto", paddingBottom: 4 }}>
                   {dPhotos.map((p, i) => (
                     <div key={i} onClick={() => setPIdx(i)}
-                      style={{ flexShrink: 0, width: 62, height: 62, borderRadius: 4, overflow: "hidden", border: `2px solid ${i === pIdx ? T.gold : T.border}`, cursor: "pointer", transition: "border-color 0.2s" }}>
+                      style={{ flexShrink: 0, width: 62, height: 62, borderRadius: 4, overflow: "hidden", border: `2px solid ${i === pIdx ? T.cyan : T.border}`, cursor: "pointer", transition: "border-color 0.2s" }}>
                       <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </div>
                   ))}
@@ -1159,9 +1221,9 @@ export default function ArtVault() {
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
+          <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
             <div>
-              <div style={{ color: T.gold, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Informations</div>
+              <div style={{ color: T.cyan, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Informations</div>
               {[
                 ["Lieu d'entreposage", detWork.location_storage, <MapPin size={13} />],
                 ["Dimensions", (detWork.width || detWork.height) ? `${detWork.width || "?"}×${detWork.height || "?"}${detWork.depth ? `×${detWork.depth}` : ""} ${detWork.dimension_unit || "cm"}` : null, <Ruler size={13} />],
@@ -1178,7 +1240,7 @@ export default function ArtVault() {
               )}
             </div>
             <div>
-              <div style={{ color: T.gold, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Finance</div>
+              <div style={{ color: T.cyan, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Finance</div>
               {[
                 ["Date d'achat", detWork.date_purchase ? fmtDate(detWork.date_purchase) : null, <Calendar size={13} />],
                 ["Lieu d'achat", detWork.location_purchase, <MapPin size={13} />],
@@ -1187,7 +1249,7 @@ export default function ArtVault() {
               ].filter(([, v]) => v).map(([l, v, ico, gold]) => (
                 <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}30`, gap: 12 }}>
                   <span style={{ color: T.dim, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.07em" }}>{ico}{l}</span>
-                  <span style={{ color: gold ? T.gold : T.cream, fontSize: "0.9rem", fontWeight: gold ? 500 : 400 }}>{v}</span>
+                  <span style={{ color: gold ? T.accent : T.cream, fontSize: "0.9rem", fontWeight: gold ? 500 : 400 }}>{v}</span>
                 </div>
               ))}
               {detWork.value_purchase && detWork.value_current && +detWork.value_purchase > 0 && (() => {
@@ -1204,19 +1266,19 @@ export default function ArtVault() {
 
           {(dExp || dAtt) && (
             <div style={{ marginTop: 8, marginBottom: 24 }}>
-              <div style={{ color: T.gold, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Documents</div>
+              <div style={{ color: T.accent, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Documents</div>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {dExp && (
                   <a href={dExp.url} download={dExp.name}
                     style={{ display: "flex", alignItems: "center", gap: 8, background: T.s2, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 16px", color: T.cream, textDecoration: "none", fontSize: "0.88rem" }}>
-                    <FileText size={15} color={T.gold} /> Expertise · {dExp.name}
+                    <FileText size={15} color={T.accent} /> Expertise · {dExp.name}
                     <Download size={13} color={T.dim} />
                   </a>
                 )}
                 {dAtt && (
                   <a href={dAtt.url} download={dAtt.name}
                     style={{ display: "flex", alignItems: "center", gap: 8, background: T.s2, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 16px", color: T.cream, textDecoration: "none", fontSize: "0.88rem" }}>
-                    <FileText size={15} color={T.gold} /> Attestation · {dAtt.name}
+                    <FileText size={15} color={T.accent} /> Attestation · {dAtt.name}
                     <Download size={13} color={T.dim} />
                   </a>
                 )}
@@ -1229,10 +1291,10 @@ export default function ArtVault() {
       {/* ── FAB ──────────────────────────────────────────────── */}
       {screen === "gallery" && (
         <button onClick={openAdd}
-          style={{ position: "fixed", bottom: 28, right: 24, width: 56, height: 56, borderRadius: "50%", background: T.gold, color: T.bg, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.5)", zIndex: 200, transition: "transform 0.2s" }}
+          style={{ position: "fixed", bottom: 28, right: 24, width: 56, height: 56, borderRadius: "50%", background: T.accent, color: T.bg, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.5)", zIndex: 200, transition: "transform 0.2s" }}
           onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
           onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}>
-          <Plus size={26} />
+          <Plus size={28} />
         </button>
       )}
 

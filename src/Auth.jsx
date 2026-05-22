@@ -7,10 +7,11 @@ const T = {
   s1: "#171612",
   s3: "#27261f",
   border: "#35332a",
-  gold: "#c9a84c",
+  accent: "#3fc1c9",
   cream: "#f0e6d2",
   dim: "#8a8070",
   red: "#b03535",
+  cyan: "#3fc1c9",
 };
 
 export default function Auth() {
@@ -43,14 +44,17 @@ export default function Auth() {
         alignItems: "center",
         justifyContent: "center",
         padding: 20,
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       }}
     >
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Elms+Sans:wght@700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600&display=swap');`}</style>
       <div
         style={{
           width: "100%",
           maxWidth: 400,
           background: T.s1,
           border: `1px solid ${T.border}`,
+          borderTop: `3px solid ${T.cyan}`,
           borderRadius: 10,
           padding: "40px 32px",
         }}
@@ -68,7 +72,7 @@ export default function Auth() {
             style={{
               width: 32,
               height: 32,
-              background: T.gold,
+              background: T.accent,
               borderRadius: 4,
               display: "flex",
               alignItems: "center",
@@ -81,6 +85,7 @@ export default function Auth() {
                 fontSize: "0.85rem",
                 fontWeight: 700,
                 letterSpacing: "0.05em",
+                fontFamily: "'Elms Sans', sans-serif",
               }}
             >
               AV
@@ -88,10 +93,10 @@ export default function Auth() {
           </div>
           <h1
             style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
+              fontFamily: "'Elms Sans', sans-serif",
               fontSize: "1.5rem",
-              fontWeight: 500,
-              color: T.gold,
+              fontWeight: 600,
+              color: T.cream,
               letterSpacing: "0.04em",
             }}
           >
@@ -163,7 +168,7 @@ export default function Auth() {
                   outline: "none",
                   colorScheme: "dark",
                 }}
-                onFocus={(e) => (e.target.style.borderColor = T.gold)}
+                onFocus={(e) => (e.target.style.borderColor = T.cyan)}
                 onBlur={(e) => (e.target.style.borderColor = T.border)}
               />
             </div>
@@ -205,7 +210,7 @@ export default function Auth() {
                   outline: "none",
                   colorScheme: "dark",
                 }}
-                onFocus={(e) => (e.target.style.borderColor = T.gold)}
+                onFocus={(e) => (e.target.style.borderColor = T.cyan)}
                 onBlur={(e) => (e.target.style.borderColor = T.border)}
               />
             </div>
@@ -229,7 +234,7 @@ export default function Auth() {
               border: "none",
               outline: "none",
               opacity: loading ? 0.6 : 1,
-              background: T.gold,
+              background: T.accent,
               color: T.bg,
               fontWeight: 600,
               marginTop: 4,
@@ -252,7 +257,7 @@ export default function Auth() {
             style={{
               background: "none",
               border: "none",
-              color: T.gold,
+              color: T.cyan,
               cursor: "pointer",
               fontSize: "0.85rem",
               fontFamily: "inherit",

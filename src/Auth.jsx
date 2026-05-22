@@ -3,13 +3,13 @@ import { supabase } from "./supabase";
 import { Mail, Lock, Loader } from "lucide-react";
 
 const T = {
-  bg: "#0d0c0a",
-  s1: "#171612",
-  s3: "#27261f",
-  border: "#35332a",
+  bg: "#122c44",
+  s1: "#336699",
+  s3: "#4d7fa6",
+  border: "#4a6a80",
   accent: "#3fc1c9",
   cream: "#f0e6d2",
-  dim: "#8a8070",
+  dim: "#a8b8c0",
   red: "#b03535",
   cyan: "#3fc1c9",
 };

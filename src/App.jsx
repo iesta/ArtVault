@@ -118,17 +118,17 @@ function dataURLToFile(dataURL, filename) {
   return new File([blob], filename, { type: blob.type });
 }
 
-// ── Theme (dark museum with cyan accents) ─────────────────────
+// ── Theme (blue-gray) ─────────────────────────────────────────
 const T = {
-  bg:      "#0d0c0a",
-  s1:      "#171612",
-  s2:      "#1e1d18",
-  s3:      "#27261f",
-  border:  "#35332a",
+  bg:      "#122c44",
+  s1:      "#336699",
+  s2:      "#244d6b",
+  s3:      "#4d7fa6",
+  border:  "#4a6a80",
   accent:  "#3fc1c9",
   cream:   "#f0e6d2",
-  dim:     "#8a8070",
-  dim2:    "#5a5448",
+  dim:     "#a8b8c0",
+  dim2:    "#7a8a90",
   green:   "#3a8050",
   red:     "#b03535",
   cyan:    "#3fc1c9",

@@ -1,73 +1,61 @@
 # ArtVault
 
-Catalogue de collection d'art familial — React SPA avec Supabase (Auth + DB + Storage).
+Family art collection catalog — React SPA backed by Supabase (Auth + DB + Storage).
 
 ## Stack
 
-- **Frontend** : React 19, Vite, lucide-react
-- **Backend** : Supabase (PostgreSQL, Auth email/password, Storage)
-- **Déploiement** : Docker / Nginx / Caddy
+- **Frontend**: React 19, Vite, lucide-react
+- **Backend**: Supabase (PostgreSQL, Auth email/password, Storage)
+- **Deployment**: Docker / Nginx / Caddy
 
 ---
 
-## 🚀 Développement
+## 🚀 Development
 
 ```bash
-# Installer les dépendances
 npm install
-
-# Lancer le serveur de dev (http://localhost:5173)
-npm run dev
-
-# Build de production
-npm run build
+npm run dev          # http://localhost:5173
+npm run build        # Production build → dist/
 ```
 
-### Variables d'environnement
+### Environment variables
 
-Copier le fichier `.env.example` et le renseigner :
+Copy `.env.example` and fill it in:
 
 ```bash
 VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_votre_cle
+VITE_SUPABASE_ANON_KEY=sb_publishable_your_key
 ```
 
 ---
 
-## 🗄️ Supabase — Configuration initiale
+## 🗄️ Supabase Setup
 
-1. Créer un projet sur [supabase.com](https://supabase.com)
-2. Dans le **SQL Editor**, exécuter `supabase-schema.sql` (crée la table `artworks`, les buckets Storage et les règles RLS)
-3. **Authentication → Settings** → désactiver `Enable email confirmation`
-4. **Authentication → Providers → Email** → activé (par défaut)
-5. Récupérer les credentials dans **Settings → API** (`Project URL` et `anon public key`)
+1. Create a project at [supabase.com](https://supabase.com)
+2. **SQL Editor** → paste `supabase-schema.sql` → **Run** (creates the `artworks` table, Storage buckets, and RLS policies)
+3. **Authentication → Settings** → disable `Enable email confirmation`
+4. **Authentication → Providers → Email** → should be **Enabled** (default)
+5. Get credentials from **Settings → API** (`Project URL` + `anon public key`)
 
 ---
 
-## 🐳 Plan A — Déploiement Docker (recommandé)
+## 🐳 Plan A — Docker Deployment (recommended)
 
 ### Architecture
 
 ```
-Caddy (HTTPS) → reverse proxy → Nginx (fichiers statiques)
+Caddy (HTTPS) → reverse proxy → Nginx (static files)
 ```
 
-### Build de l'image
+### Service definition
 
-```bash
-docker build \
-  --build-arg VITE_SUPABASE_URL=https://xxx.supabase.co \
-  --build-arg VITE_SUPABASE_ANON_KEY=sb_publishable_xxx \
-  -t artvault:latest .
-```
-
-### docker-compose.yml
+Add the `artvault` service to your existing `docker-compose.yml`:
 
 ```yaml
 services:
   artvault:
     build:
-      context: ./artvault
+      context: https://github.com/iesta/ArtVault.git
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
@@ -89,6 +77,8 @@ volumes:
   caddy_data:
 ```
 
+Docker supports **remote build contexts** — it clones the repo from GitHub and runs the Dockerfile inside.
+
 ### Caddyfile
 
 ```caddy
@@ -97,13 +87,29 @@ artvault.ordiman.com {
 }
 ```
 
+### .env file (alongside docker-compose.yml)
+
+```
+VITE_SUPABASE_URL=https://hlugdicajtbzvqpfrqcv.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_EKFfShOBSXF1Xeeq0y64kg_8nI4io5I
+```
+
+### Manual Docker build (alternative)
+
+```bash
+docker build \
+  --build-arg VITE_SUPABASE_URL=https://xxx.supabase.co \
+  --build-arg VITE_SUPABASE_ANON_KEY=sb_publishable_xxx \
+  -t artvault:latest .
+```
+
 ---
 
-## 📦 Plan B — Build local + push dist/
+## 📦 Plan B — Local build + push dist/
 
-Alternative sans Docker : builder localement et copier le dossier `dist/` sur le serveur.
+No Docker required. Build locally and upload the `dist/` folder.
 
-### 1. Builder
+### 1. Build
 
 ```bash
 VITE_SUPABASE_URL=https://xxx.supabase.co \
@@ -111,19 +117,15 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_xxx \
 npm run build
 ```
 
-### 2. Copier sur le serveur
+### 2. Upload to server
 
 ```bash
-# Avec rsync (recommandé)
 rsync -avz --delete dist/ user@vps:/srv/artvault/
-
-# Ou avec scp
+# or
 scp -r dist/* user@vps:/srv/artvault/
 ```
 
-### 3. Serveur — Caddyfile
-
-Caddy sert directement les fichiers statiques :
+### 3. Caddyfile (serves static files directly)
 
 ```caddy
 artvault.ordiman.com {
@@ -133,46 +135,46 @@ artvault.ordiman.com {
 }
 ```
 
-Redémarrer Caddy : `docker compose restart caddy`
+Restart Caddy: `docker compose restart caddy`
 
 ---
 
-## 📁 Structure du projet
+## 📁 Project structure
 
 ```
 artvault/
-├── .env.development       # Variables Supabase (dev, ignoré par git)
-├── .env.production        # Variables Supabase (prod, ignoré par git)
-├── .env.example           # Template des variables
+├── .env.development       # Supabase creds (dev, gitignored)
+├── .env.production        # Supabase creds (prod, gitignored)
+├── .env.example           # Credentials template for git
 ├── .gitignore
-├── Dockerfile             # Multi-stage build
-├── nginx.conf             # Config Nginx (SPA fallback + cache)
-├── supabase-schema.sql    # SQL à exécuter dans Supabase
+├── Dockerfile             # Multi-stage build (Node → Nginx)
+├── nginx.conf             # Nginx config (SPA fallback + cache)
+├── supabase-schema.sql    # SQL to run in Supabase dashboard
 ├── vite.config.js
 ├── package.json
 ├── index.html
 └── src/
-    ├── main.jsx           # Point d'entrée React
-    ├── App.jsx            # Composant principal
-    ├── Auth.jsx           # Écran login/signup
-    └── supabase.js        # Client Supabase
+    ├── main.jsx           # React entry point
+    ├── App.jsx            # Main app component
+    ├── Auth.jsx           # Login / signup screen
+    └── supabase.js        # Supabase client init
 ```
 
 ---
 
 ## 📤 Export ZIP
 
-Dans la galerie, cliquer sur l'icône Archive dans la barre de navigation pour télécharger un ZIP contenant :
+In the gallery, click the Archive icon in the nav bar to download a ZIP containing:
 
-- `collection.json` — toutes les métadonnées
-- `photos/{id}/` — les photos de chaque œuvre
-- `documents/{id}/` — les PDFs d'expertise et certificats
+- `collection.json` — all artwork metadata
+- `photos/{id}/` — photos per artwork
+- `documents/{id}/` — expertise PDFs and certificates
 
 ---
 
-## 🔐 Sécurité
+## 🔐 Security notes
 
-- Les buckets Storage sont en mode **public** (lecture sans auth, écriture réservée aux utilisateurs authentifiés)
-- La RLS (Row Level Security) restreint chaque utilisateur à ses propres données
-- La clé `anon public` est destinée au client — ne **jamais** exposer la `service_role` key
-- Les emails de confirmation peuvent être désactivés en dev (Auth → Settings)
+- Storage buckets are **public** (anyone with the URL can read; only authenticated users can write)
+- RLS (Row Level Security) restricts each user to their own records
+- The `anon public` key is safe for client-side use — **never** expose the `service_role` key
+- Disable email confirmation in Supabase Auth settings for dev/testing

@@ -8,6 +8,7 @@ import {
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
 import JSZip from "jszip";
+import { exportToPDF } from "./exportPDF.js";
 
 /* ═══════════════════════════════════════════════════════════════
    ArtVault — Catalogue de collection familiale
@@ -232,6 +233,7 @@ export default function ArtVault() {
   const [delModal, setDelModal] = useState(false);
   const [fileErr,  setFileErr]  = useState("");
   const [exporting, setExporting] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Form state
   const [editWork, setEditWork] = useState(null);
@@ -581,6 +583,18 @@ export default function ArtVault() {
     setExporting(false);
   };
 
+  // ── Export PDF ─────────────────────────────────────────────────
+  const handleExportPDF = async () => {
+    if (!works.length) return;
+    setPdfLoading(true);
+    try {
+      await exportToPDF(works);
+    } catch (err) {
+      setFileErr("Erreur d'export PDF : " + err.message);
+    }
+    setPdfLoading(false);
+  };
+
   // ── Photo / PDF handlers ──────────────────────────────────────
   const addPhoto = async e => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -701,9 +715,14 @@ export default function ArtVault() {
                 style={{ background: "none", border: "none", color: !gridMode ? T.gold : T.dim, cursor: "pointer", padding: 6, transition: "color 0.2s", display: "flex" }}>
                 <List size={18} />
               </button>
+              <button className="ghost-btn" onClick={handleExportPDF} disabled={pdfLoading || works.length === 0}
+                style={{ background: "none", border: "none", color: T.dim, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: 6, display: "flex", transition: "color 0.2s", opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}
+                title="Export PDF catalogue">
+                <FileText size={17} />
+              </button>
               <button className="ghost-btn" onClick={handleExport} disabled={exporting || works.length === 0}
                 style={{ background: "none", border: "none", color: T.dim, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: 6, display: "flex", transition: "color 0.2s", opacity: exporting || works.length === 0 ? 0.5 : 1 }}
-                title="Exporter la collection">
+                title="Export ZIP collection">
                 <Archive size={18} />
               </button>
               <div style={{ width: 1, height: 20, background: T.border, margin: "0 4px" }} />
@@ -758,9 +777,9 @@ export default function ArtVault() {
               </button>
             ))}
           </div>
-          {exporting && (
+          {(exporting || pdfLoading) && (
             <span style={{ color: T.gold, fontSize: "0.82rem", fontStyle: "italic" }}>
-              Export en cours…
+              {pdfLoading ? "Génération du PDF…" : "Export en cours…"}
             </span>
           )}
         </div>

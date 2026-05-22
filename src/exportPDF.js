@@ -3,7 +3,6 @@ import html2canvas from "html2canvas";
 import { photoURL } from "./supabase";
 
 const W = 793;
-const H = 1122;
 const P = 52;
 
 const eur = v =>
@@ -18,7 +17,7 @@ const fmtDate = d => {
 
 function field(label, value) {
   if (!value) return "";
-  return `<tr><td style="color:#888;width:140px;vertical-align:top;padding:4px 0;">${label}</td><td style="color:#222;padding:4px 0;">${value}</td></tr>`;
+  return `<tr><td style="color:#888;width:140px;vertical-align:top;padding:4px 0;font-size:11px;">${label}</td><td style="color:#222;padding:4px 0;font-size:11px;">${value}</td></tr>`;
 }
 
 function dims(w) {
@@ -32,91 +31,118 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function pageHTML(work, num, total) {
+function buildPage(work, num, total) {
+  const el = document.createElement("div");
+  el.style.cssText = `width:${W}px;background:#fff;color:#222;font-family:Georgia,'Times New Roman',serif;padding:${P}px;box-sizing:border-box;display:flex;flex-direction:column;`;
+
   const imgUrl = work.photos?.[0]?.path ? photoURL(work.photos[0].path) : null;
 
-  const photoBlock = imgUrl
-    ? `<div style="text-align:center;margin-bottom:22px;">
-         <img src="${imgUrl}" style="max-width:100%;max-height:300px;object-fit:contain;border-radius:3px;" />
-       </div>`
-    : `<div style="height:60px;"></div>`;
+  if (imgUrl) {
+    const img = document.createElement("img");
+    img.src = imgUrl;
+    img.style.cssText = "display:block;max-width:100%;max-height:300px;object-fit:contain;margin:0 auto 22px;border-radius:3px;";
+    el.appendChild(img);
+  } else {
+    const spacer = document.createElement("div");
+    spacer.style.height = "60px";
+    el.appendChild(spacer);
+  }
 
-  return `<!doctype html>
-<html>
-<head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:0;background:#fff;">
-<div style="width:${W}px;min-height:${H}px;background:#fff;color:#222;font-family:Georgia,'Times New Roman',serif;padding:${P}px;box-sizing:border-box;display:flex;flex-direction:column;">
-  ${photoBlock}
+  const title = document.createElement("h1");
+  title.textContent = work.title || "Sans titre";
+  title.style.cssText = "font-size:22px;margin:0 0 3px;font-weight:500;color:#111;";
+  el.appendChild(title);
 
-  <h1 style="font-size:22px;margin:0 0 3px;font-weight:500;color:#111;">${esc(work.title) || "Sans titre"}</h1>
-  <h2 style="font-size:17px;margin:0 0 18px;font-weight:400;font-style:italic;color:#666;">${esc(work.artist) || "Artiste inconnu"}</h2>
+  const artist = document.createElement("h2");
+  artist.textContent = work.artist || "Artiste inconnu";
+  artist.style.cssText = "font-size:17px;margin:0 0 18px;font-weight:400;font-style:italic;color:#666;";
+  el.appendChild(artist);
 
-  <hr style="border:none;border-top:1px solid #ddd;margin:0 0 14px;" />
+  const hr1 = document.createElement("hr");
+  hr1.style.cssText = "border:none;border-top:1px solid #ddd;margin:0 0 14px;";
+  el.appendChild(hr1);
 
-  <table style="width:100%;font-size:11px;line-height:1.7;border-collapse:collapse;">
-    ${field("Technique", esc(work.technique))}
-    ${field("Date", esc(work.date_work))}
-    ${field("Dimensions", dims(work))}
-    ${field("Entreposage", esc(work.location_storage))}
-    ${field("Date d'achat", work.date_purchase ? fmtDate(work.date_purchase) : null)}
-    ${field("Lieu d'achat", esc(work.location_purchase))}
-    ${field("Valeur d'achat", work.value_purchase ? eur(work.value_purchase) : null)}
-    ${field("Valeur actuelle", work.value_current ? eur(work.value_current) : null)}
-    ${field("Assurée", work.is_insured ? "Oui" : "Non")}
-  </table>
+  const rows = [
+    ["Technique", work.technique],
+    ["Date", work.date_work],
+    ["Dimensions", dims(work)],
+    ["Entreposage", work.location_storage],
+    ["Date d'achat", work.date_purchase ? fmtDate(work.date_purchase) : null],
+    ["Lieu d'achat", work.location_purchase],
+    ["Valeur d'achat", work.value_purchase ? eur(work.value_purchase) : null],
+    ["Valeur actuelle", work.value_current ? eur(work.value_current) : null],
+    ["Assurée", work.is_insured ? "Oui" : "Non"],
+  ];
 
-  ${work.notes
-    ? `<hr style="border:none;border-top:1px solid #ddd;margin:14px 0;" />
-       <div style="font-size:10.5px;color:#444;line-height:1.6;font-style:italic;">${esc(work.notes)}</div>`
-    : ""}
+  const table = document.createElement("table");
+  table.style.cssText = "width:100%;border-collapse:collapse;";
+  for (const [l, v] of rows) {
+    if (!v) continue;
+    const tr = document.createElement("tr");
+    const td1 = document.createElement("td");
+    td1.textContent = l;
+    td1.style.cssText = "color:#888;width:140px;vertical-align:top;padding:4px 0;font-size:11px;";
+    const td2 = document.createElement("td");
+    td2.textContent = v;
+    td2.style.cssText = "color:#222;padding:4px 0;font-size:11px;";
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    table.appendChild(tr);
+  }
+  el.appendChild(table);
 
-  <div style="margin-top:auto;font-size:9px;color:#aaa;text-align:center;padding-top:24px;letter-spacing:0.08em;">
-    ArtVault · ${num}/${total}
-  </div>
-</div>
-</body>
-</html>`;
-}
+  if (work.notes) {
+    const hr2 = document.createElement("hr");
+    hr2.style.cssText = "border:none;border-top:1px solid #ddd;margin:14px 0;";
+    el.appendChild(hr2);
+    const notes = document.createElement("div");
+    notes.textContent = work.notes;
+    notes.style.cssText = "font-size:10.5px;color:#444;line-height:1.6;font-style:italic;";
+    el.appendChild(notes);
+  }
 
-function waitImages(el) {
-  const imgs = [...el.querySelectorAll("img")];
-  return Promise.all(
-    imgs.map(
-      img =>
-        new Promise(res => {
-          if (img.complete) res();
-          else { img.onload = res; img.onerror = res; }
-        })
-    )
-  );
+  const footer = document.createElement("div");
+  footer.textContent = `ArtVault · ${num}/${total}`;
+  footer.style.cssText = "margin-top:auto;font-size:9px;color:#aaa;text-align:center;padding-top:24px;letter-spacing:0.08em;";
+  el.appendChild(footer);
+
+  return el;
 }
 
 export async function exportToPDF(works) {
   if (!works.length) return;
 
   const pdf = new jsPDF("p", "pt", "a4");
+  const PAGE_H = 841.89;
 
   for (let i = 0; i < works.length; i++) {
-    const html = pageHTML(works[i], i + 1, works.length);
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    div.style.cssText = "position:absolute;left:-9999px;top:0;";
-    document.body.appendChild(div);
+    const el = buildPage(works[i], i + 1, works.length);
 
-    await waitImages(div);
-    await new Promise(r => setTimeout(r, 200));
+    const container = document.createElement("div");
+    container.style.cssText = "position:fixed;left:-9999px;top:0;z-index:-1;";
+    container.appendChild(el);
+    document.body.appendChild(container);
 
-    const el = div.firstElementChild;
+    // Wait for images
+    const imgs = el.querySelectorAll("img");
+    await Promise.all(
+      [...imgs].map(
+        img =>
+          new Promise(res => {
+            if (img.complete) res();
+            else { img.onload = res; img.onerror = res; }
+          })
+      )
+    );
+    await new Promise(r => setTimeout(r, 300));
+
     const canvas = await html2canvas(el, {
       scale: 2,
       useCORS: true,
-      allowTaint: false,
-      backgroundColor: "#ffffff",
-      width: W,
-      height: el.scrollHeight,
+      backgroundColor: "#fff",
     });
 
-    document.body.removeChild(div);
+    document.body.removeChild(container);
 
     if (i > 0) pdf.addPage();
 
@@ -125,8 +151,8 @@ export async function exportToPDF(works) {
     const pageW = 595.28;
     const pageH = ratio * pageW;
 
-    if (pageH > 841.89) {
-      pdf.addImage(imgData, "JPEG", 0, 0, (841.89 / pageH) * pageW, 841.89);
+    if (pageH > PAGE_H) {
+      pdf.addImage(imgData, "JPEG", 0, 0, (PAGE_H / pageH) * pageW, PAGE_H);
     } else {
       pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
     }

@@ -7,8 +7,6 @@ import {
 } from "lucide-react";
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
-import JSZip from "jszip";
-import { exportToPDF } from "./exportPDF.js";
 
 /* ═══════════════════════════════════════════════════════════════
    ArtVault — Catalogue de collection familiale
@@ -252,6 +250,9 @@ export default function ArtVault() {
   const [dAtt,     setDAtt]     = useState(null);
   const [pIdx,     setPIdx]     = useState(0);
 
+  // Fullscreen photo
+  const [fullscreenPhoto, setFullscreenPhoto] = useState(null);
+
   // Thumbnails {id: url}
   const [thumbs, setThumbs] = useState({});
 
@@ -316,6 +317,18 @@ export default function ArtVault() {
 
   // ── Navigation ───────────────────────────────────────────────
   const goGallery = () => { setScreen("gallery"); setMenuOpen(false); };
+
+  // ── ESC key ──────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = e => {
+      if (e.key === "Escape") {
+        if (fullscreenPhoto) setFullscreenPhoto(null);
+        else if (screen === "detail") goGallery();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [screen, fullscreenPhoto]);
 
   const openAdd = () => {
     setEditWork(null); setForm(BLANK); setFormTab("info");
@@ -522,6 +535,7 @@ export default function ArtVault() {
   const handleExport = async () => {
     setExporting(true);
     try {
+      const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       const meta = [];
 
@@ -590,6 +604,7 @@ export default function ArtVault() {
     if (!works.length) return;
     setPdfLoading(true);
     try {
+      const { exportToPDF } = await import("./exportPDF.js");
       await exportToPDF(works);
     } catch (err) {
       setFileErr("Erreur d'export PDF : " + err.message);
@@ -671,7 +686,7 @@ export default function ArtVault() {
         .tab-btn:hover { color: ${T.cream} !important; }
         .ghost-btn:hover { color: ${T.cyan} !important; }
         .row-hover:hover { background: ${T.s3} !important; }
-        @media (max-width: 768px) { .desk-only { display: none !important; } .resp-grid { grid-template-columns: 1fr !important; } .resp-cols { grid-template-columns: 1fr !important; } .resp-gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; } }
+        @media (max-width: 768px) { .desk-only { display: none !important; } .resp-grid { grid-template-columns: 1fr !important; } .resp-cols { grid-template-columns: 1fr !important; } .resp-gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; } .tb-hide { display: none !important; } }
         @media (min-width: 769px) { .mob-only { display: none !important; } }
       `}</style>
 
@@ -688,7 +703,7 @@ export default function ArtVault() {
             <div style={{ width: 28, height: 28, background: T.accent, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: T.bg, fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.05em", fontFamily: "'Elms Sans', sans-serif" }}>AV</span>
             </div>
-            <h1 style={{ fontFamily: "'Elms Sans', sans-serif", fontSize: "1.4rem", fontWeight: 600, color: T.accent, letterSpacing: "0.04em" }}>
+            <h1 onClick={goGallery} style={{ fontFamily: "'Elms Sans', sans-serif", fontSize: "1.4rem", fontWeight: 600, color: T.accent, letterSpacing: "0.04em", cursor: "pointer" }}>
               ArtVault
             </h1>
           </div>
@@ -767,7 +782,7 @@ export default function ArtVault() {
         {menuOpen && (
           <>
             <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 98 }} />
-            <div style={{ position: "fixed", top: 58, left: 0, right: 0, background: T.s1, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", zIndex: 99, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ position: "fixed", top: 58, left: 0, right: 0, background: T.s1, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", zIndex: 99, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             {screen === "gallery" && (
               <>
                 <button className="ghost-btn" onClick={() => { setGridMode(true); setMenuOpen(false); }}
@@ -805,7 +820,7 @@ export default function ArtVault() {
               </>
             )}
             {screen === "form" && (
-              <Btn variant="primary" onClick={() => { handleSave(); setMenuOpen(false); }} disabled={saving} sx={{ width: "100%" }}>
+              <Btn variant="primary" onClick={() => { handleSave(); setMenuOpen(false); }} disabled={saving} sx={{ width: "fit-content" }}>
                 <Save size={16} /> {saving ? "Enregistrement…" : editWork ? "Mettre à jour" : "Enregistrer"}
               </Btn>
             )}
@@ -933,6 +948,7 @@ export default function ArtVault() {
                     ["value_purchase","Achat"], ["value_current","Valeur act."], ["is_insured","Ass."]
                   ].map(([f, l]) => (
                     <th key={f} onClick={() => toggleSort(f)}
+                      className={["technique","date_work","location_storage","value_purchase"].includes(f) ? "tb-hide" : ""}
                       style={{ textAlign: "left", padding: "10px 12px", color: sortField === f ? T.accent : T.dim, fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase", fontSize: "0.75rem", cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                         {l} {sortField === f && (sortDir === "asc" ? "↑" : "↓")}
@@ -947,10 +963,10 @@ export default function ArtVault() {
                     style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer", background: i % 2 === 0 ? "transparent" : T.s1, transition: "background 0.15s" }}>
                     <td style={{ padding: "10px 12px", color: T.cream, fontStyle: "italic" }}>{w.artist || "—"}</td>
                     <td style={{ padding: "10px 12px" }}>{w.title || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: T.dim }}>{w.technique || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: T.dim }}>{w.date_work || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: T.dim }}>{w.location_storage || "—"}</td>
-                    <td style={{ padding: "10px 12px", color: T.dim }}>{eur(w.value_purchase)}</td>
+                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.technique || "—"}</td>
+                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.date_work || "—"}</td>
+                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.location_storage || "—"}</td>
+                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{eur(w.value_purchase)}</td>
                     <td style={{ padding: "10px 12px", color: T.accent }}>{eur(w.value_current)}</td>
                     <td style={{ padding: "10px 12px", textAlign: "center" }}>
                       {w.is_insured ? <CheckCircle2 size={15} color={T.green} /> : <Circle size={15} color={T.border} />}
@@ -1170,7 +1186,7 @@ export default function ArtVault() {
       {screen === "detail" && detWork && (
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 20px 60px" }}>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "2rem", fontWeight: 500, color: T.cream, lineHeight: 1.2, marginBottom: 8 }}>
+            <h2 onClick={goGallery} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "2rem", fontWeight: 500, color: T.cream, lineHeight: 1.2, marginBottom: 8, cursor: "pointer" }}>
               {detWork.title || "Sans titre"}
             </h2>
             <div style={{ color: T.accent, fontSize: "1.15rem", fontStyle: "italic", marginBottom: 10 }}>{detWork.artist}</div>
@@ -1188,7 +1204,7 @@ export default function ArtVault() {
           {dPhotos.length > 0 && (
             <div style={{ marginBottom: 28 }}>
               <div style={{ background: T.s2, borderRadius: 8, overflow: "hidden", maxHeight: 500, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                <img src={dPhotos[pIdx].url} alt="" style={{ maxWidth: "100%", maxHeight: 500, objectFit: "contain" }} />
+                <img src={dPhotos[pIdx].url} alt="" onClick={() => setFullscreenPhoto(dPhotos[pIdx].url)} style={{ maxWidth: "100%", maxHeight: 500, objectFit: "contain", cursor: "pointer" }} />
                 {dPhotos.length > 1 && (
                   <>
                     <button onClick={() => setPIdx(i => (i - 1 + dPhotos.length) % dPhotos.length)}
@@ -1315,6 +1331,19 @@ export default function ArtVault() {
               </Btn>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── FULLSCREEN PHOTO ─────────────────────────────────── */}
+      {fullscreenPhoto && (
+        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setFullscreenPhoto(null)}>
+          <button onClick={() => setFullscreenPhoto(null)}
+            style={{ position: "absolute", top: 14, right: 14, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 501 }}>
+            <X size={20} />
+          </button>
+          <img src={fullscreenPhoto} alt="" onClick={e => e.stopPropagation()}
+            style={{ maxWidth: "95vw", maxHeight: "95vh", objectFit: "contain" }} />
         </div>
       )}
     </div>

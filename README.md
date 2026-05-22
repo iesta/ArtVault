@@ -4,8 +4,10 @@ Family art collection catalog — React SPA backed by Supabase (Auth + DB + Stor
 
 ## Stack
 
-- **Frontend**: React 19, Vite, lucide-react
+- **Frontend**: React 19, Vite, lucide-react, jsPDF + html2canvas, JSZip
 - **Backend**: Supabase (PostgreSQL, Auth email/password, Storage)
+- **Font**: Inter (UI) · Playfair Display (headings) · Elms Sans (logo/title)
+- **Theme**: Dark mode with cyan accents, responsive (mobile hamburger menu)
 - **Deployment**: Docker / Nginx / Caddy
 
 ---
@@ -143,8 +145,6 @@ Restart Caddy: `docker compose restart caddy`
 
 ```
 artvault/
-├── .env.development       # Supabase creds (dev, gitignored)
-├── .env.production        # Supabase creds (prod, gitignored)
 ├── .env.example           # Credentials template for git
 ├── .gitignore
 ├── Dockerfile             # Multi-stage build (Node → Nginx)
@@ -155,20 +155,41 @@ artvault/
 ├── index.html
 └── src/
     ├── main.jsx           # React entry point
-    ├── App.jsx            # Main app component
+    ├── App.jsx            # Main app component (1200+ lines)
     ├── Auth.jsx           # Login / signup screen
+    ├── exportPDF.js       # PDF catalog generator (lazy-loaded)
     └── supabase.js        # Supabase client init
 ```
 
 ---
 
-## 📤 Export ZIP
+## 🎮 Keyboard shortcuts
 
-In the gallery, click the Archive icon in the nav bar to download a ZIP containing:
+| Key | Context | Action |
+|-----|---------|--------|
+| `ESC` | Detail view | Go back to gallery |
+| `ESC` | Fullscreen photo | Close photo |
+
+## 🖱️ UI shortcuts
+
+- Click the **"ArtVault"** title in the nav bar → go back to gallery
+- Click the **artwork title** in detail view → go back to gallery
+- Click a **photo** in detail view → fullscreen viewer (ESC or ✕ to close)
+
+## 📤 Export
+
+### ZIP Export
+
+In the gallery, click the Archive icon to download a ZIP containing:
 
 - `collection.json` — all artwork metadata
 - `photos/{id}/` — photos per artwork
 - `documents/{id}/` — expertise PDFs and certificates
+
+### PDF Catalog
+
+Click the PDF icon to generate a print-ready A4 catalog with one artwork per page
+(photo, title, artist, metadata table, notes).
 
 ---
 

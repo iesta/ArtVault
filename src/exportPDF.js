@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { photoURL } from "./supabase";
 
 const W = 793;
@@ -112,6 +110,8 @@ function buildPage(work, num, total) {
 export async function exportToPDF(works) {
   if (!works.length) return;
 
+  const jsPDF = (await import("jspdf")).default;
+  const html2canvas = (await import("html2canvas")).default;
   const pdf = new jsPDF("p", "pt", "a4");
   const PAGE_H = 841.89;
 

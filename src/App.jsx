@@ -3,7 +3,7 @@ import {
   Plus, ArrowLeft, Edit2, Trash2, LayoutGrid, List, Search,
   CheckCircle2, Circle, Download, X, ChevronLeft, ChevronRight,
   Image as ImageIcon, FileText, Shield, ShieldOff, SortAsc, SortDesc,
-  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Menu
+  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu
 } from "lucide-react";
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
@@ -257,6 +257,7 @@ export default function ArtVault() {
   const [thumbs, setThumbs] = useState({});
 
   const photoRef = useRef();
+  const cameraRef = useRef();
   const expRef   = useRef();
   const attRef   = useRef();
 
@@ -1170,13 +1171,22 @@ export default function ArtVault() {
                   </div>
                 ))}
                 {fPhotos.length < 5 && (
-                  <label style={{ aspectRatio: "1", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.dim, fontSize: "0.82rem", gap: 6, transition: "border-color 0.2s, color 0.2s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
-                    <Plus size={24} />
-                    <span>Ajouter</span>
-                    <input ref={photoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={addPhoto} />
-                  </label>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, marginTop: 4 }}>
+                    <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 16px", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, cursor: "pointer", color: T.dim, fontSize: "0.88rem", transition: "border-color 0.2s, color 0.2s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
+                      <Camera size={18} />
+                      <span>Prendre photo</span>
+                      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={addPhoto} />
+                    </label>
+                    <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 16px", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, cursor: "pointer", color: T.dim, fontSize: "0.88rem", transition: "border-color 0.2s, color 0.2s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
+                      <ImageIcon size={18} />
+                      <span>Choisir dans la galerie</span>
+                      <input ref={photoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={addPhoto} />
+                    </label>
+                  </div>
                 )}
               </div>
             </div>

@@ -6,13 +6,11 @@ Family art collection catalog — React SPA backed by Supabase (Auth + DB + Stor
 
 - **Frontend**: React 19, Vite, lucide-react, jsPDF + html2canvas, JSZip
 - **Backend**: Supabase (PostgreSQL, Auth email/password, Storage)
-- **Font**: Inter (UI) · Playfair Display (headings) · Elms Sans (logo/title)
-- **Theme**: Dark mode with cyan accents, responsive (mobile hamburger menu)
-- **Deployment**: Docker / Nginx / Caddy
+- **Theme**: Dark mode with cyan accents, responsive
 
 ---
 
-## 🚀 Development
+## 🚀 Getting Started
 
 ```bash
 npm install
@@ -41,103 +39,18 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_your_key
 
 ---
 
-## 🐳 Plan A — Docker Deployment (recommended)
+## ✨ Features
 
-### Architecture
-
-```
-Caddy (HTTPS) → reverse proxy → Nginx (static files)
-```
-
-### Service definition
-
-Add the `artvault` service to your existing `docker-compose.yml`:
-
-```yaml
-services:
-  artvault:
-    build:
-      context: https://github.com/iesta/ArtVault.git
-      args:
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
-        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-    expose:
-      - 80
-
-  caddy:
-    image: caddy:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-    depends_on:
-      - artvault
-
-volumes:
-  caddy_data:
-```
-
-Docker supports **remote build contexts** — it clones the repo from GitHub and runs the Dockerfile inside.
-
-### Caddyfile
-
-```caddy
-artvault.ordiman.com {
-    reverse_proxy artvault:80
-}
-```
-
-### .env file (alongside docker-compose.yml)
-
-```
-VITE_SUPABASE_URL=https://hlugdicajtbzvqpfrqcv.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_EKFfShOBSXF1Xeeq0y64kg_8nI4io5I
-```
-
-### Manual Docker build (alternative)
-
-```bash
-docker build \
-  --build-arg VITE_SUPABASE_URL=https://xxx.supabase.co \
-  --build-arg VITE_SUPABASE_ANON_KEY=sb_publishable_xxx \
-  -t artvault:latest .
-```
-
----
-
-## 📦 Plan B — Local build + push dist/
-
-No Docker required. Build locally and upload the `dist/` folder.
-
-### 1. Build
-
-```bash
-VITE_SUPABASE_URL=https://xxx.supabase.co \
-VITE_SUPABASE_ANON_KEY=sb_publishable_xxx \
-npm run build
-```
-
-### 2. Upload to server
-
-```bash
-rsync -avz --delete dist/ user@vps:/srv/artvault/
-# or
-scp -r dist/* user@vps:/srv/artvault/
-```
-
-### 3. Caddyfile (serves static files directly)
-
-```caddy
-artvault.ordiman.com {
-    root * /srv/artvault
-    file_server
-    try_files {path} /index.html
-}
-```
-
-Restart Caddy: `docker compose restart caddy`
+| Feature | Description |
+|---------|-------------|
+| **Gallery** | Grid / list view with search, multi-field sorting, stats bar |
+| **Add / Edit** | Tabbed form (Info, Dimensions, Finance, Documents, Photos) |
+| **Photos** | Up to 5 per artwork, auto-compressed (1400px JPEG, 78% quality), camera capture on mobile |
+| **Documents** | Upload expertise PDFs and certificates of authenticity (max 5 MB each) |
+| **Auth** | Email/password login & signup, each user sees only their own collection |
+| **Export ZIP** | Download all metadata + photos + documents as a single ZIP |
+| **Export PDF** | Print-ready A4 catalog, one artwork per page with photo and metadata |
+| **Insurance tracking** | Flag artworks as insured, filterable in gallery |
 
 ---
 
@@ -145,42 +58,27 @@ Restart Caddy: `docker compose restart caddy`
 
 ```
 artvault/
-├── .env.example           # Credentials template for git
+├── .env.example           # Credentials template
 ├── .gitignore
-├── Dockerfile             # Multi-stage build (Node → Nginx)
-├── nginx.conf             # Nginx config (SPA fallback + cache)
 ├── supabase-schema.sql    # SQL to run in Supabase dashboard
 ├── vite.config.js
 ├── package.json
 ├── index.html
 └── src/
     ├── main.jsx           # React entry point
-    ├── App.jsx            # Main app component (1200+ lines)
+    ├── App.jsx            # Main app component
     ├── Auth.jsx           # Login / signup screen
-    ├── exportPDF.js       # PDF catalog generator (lazy-loaded)
+    ├── exportPDF.js       # PDF catalog generator
     └── supabase.js        # Supabase client init
 ```
 
 ---
 
-## 🎮 Keyboard shortcuts
-
-| Key | Context | Action |
-|-----|---------|--------|
-| `ESC` | Detail view | Go back to gallery |
-| `ESC` | Fullscreen photo | Close photo |
-
-## 🖱️ UI shortcuts
-
-- Click the **"ArtVault"** title in the nav bar → go back to gallery
-- Click the **artwork title** in detail view → go back to gallery
-- Click a **photo** in detail view → fullscreen viewer (ESC or ✕ to close)
-
 ## 📤 Export
 
 ### ZIP Export
 
-In the gallery, click the Archive icon to download a ZIP containing:
+Click the Archive icon in the nav bar to download a ZIP containing:
 
 - `collection.json` — all artwork metadata
 - `photos/{id}/` — photos per artwork
@@ -193,9 +91,9 @@ Click the PDF icon to generate a print-ready A4 catalog with one artwork per pag
 
 ---
 
-## 🔐 Security notes
+## 🔐 Security
 
 - Storage buckets are **public** (anyone with the URL can read; only authenticated users can write)
-- RLS (Row Level Security) restricts each user to their own records
+- Row Level Security (RLS) restricts each user to their own records
 - The `anon public` key is safe for client-side use — **never** expose the `service_role` key
 - Disable email confirmation in Supabase Auth settings for dev/testing

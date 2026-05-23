@@ -31,7 +31,7 @@ function esc(s) {
 
 function buildPage(work, num, total) {
   const el = document.createElement("div");
-  el.style.cssText = `width:${W}px;background:#fff;color:#222;font-family:Georgia,'Times New Roman',serif;padding:${P}px;box-sizing:border-box;display:flex;flex-direction:column;`;
+  el.style.cssText = `width:${W}px;background:#0d0c0a;color:#f0e6d2;font-family:Georgia,'Times New Roman',serif;padding:${P}px;box-sizing:border-box;display:flex;flex-direction:column;`;
 
   const imgUrl = work.photos?.[0]?.path ? photoURL(work.photos[0].path) : null;
 
@@ -48,16 +48,16 @@ function buildPage(work, num, total) {
 
   const title = document.createElement("h1");
   title.textContent = work.title || "Sans titre";
-  title.style.cssText = "font-size:22px;margin:0 0 3px;font-weight:500;color:#111;";
+  title.style.cssText = "font-size:22px;margin:0 0 3px;font-weight:500;color:#c9a84c;";
   el.appendChild(title);
 
   const artist = document.createElement("h2");
   artist.textContent = work.artist || "Artiste inconnu";
-  artist.style.cssText = "font-size:17px;margin:0 0 18px;font-weight:400;font-style:italic;color:#666;";
+  artist.style.cssText = "font-size:17px;margin:0 0 18px;font-weight:400;font-style:italic;color:#8a8070;";
   el.appendChild(artist);
 
   const hr1 = document.createElement("hr");
-  hr1.style.cssText = "border:none;border-top:1px solid #ddd;margin:0 0 14px;";
+  hr1.style.cssText = "border:none;border-top:1px solid #35332a;margin:0 0 14px;";
   el.appendChild(hr1);
 
   const rows = [
@@ -79,10 +79,10 @@ function buildPage(work, num, total) {
     const tr = document.createElement("tr");
     const td1 = document.createElement("td");
     td1.textContent = l;
-    td1.style.cssText = "color:#888;width:140px;vertical-align:top;padding:4px 0;font-size:11px;";
+    td1.style.cssText = "color:#5a5448;width:140px;vertical-align:top;padding:4px 0;font-size:11px;";
     const td2 = document.createElement("td");
     td2.textContent = v;
-    td2.style.cssText = "color:#222;padding:4px 0;font-size:11px;";
+    td2.style.cssText = "color:#f0e6d2;padding:4px 0;font-size:11px;";
     tr.appendChild(td1);
     tr.appendChild(td2);
     table.appendChild(tr);
@@ -91,17 +91,17 @@ function buildPage(work, num, total) {
 
   if (work.notes) {
     const hr2 = document.createElement("hr");
-    hr2.style.cssText = "border:none;border-top:1px solid #ddd;margin:14px 0;";
+    hr2.style.cssText = "border:none;border-top:1px solid #35332a;margin:14px 0;";
     el.appendChild(hr2);
     const notes = document.createElement("div");
     notes.textContent = work.notes;
-    notes.style.cssText = "font-size:10.5px;color:#444;line-height:1.6;font-style:italic;";
+    notes.style.cssText = "font-size:10.5px;color:#8a8070;line-height:1.6;font-style:italic;";
     el.appendChild(notes);
   }
 
   const footer = document.createElement("div");
   footer.textContent = `ArtVault · ${num}/${total}`;
-  footer.style.cssText = "margin-top:auto;font-size:9px;color:#aaa;text-align:center;padding-top:24px;letter-spacing:0.08em;";
+  footer.style.cssText = "margin-top:auto;font-size:9px;color:#5a5448;text-align:center;padding-top:24px;letter-spacing:0.08em;";
   el.appendChild(footer);
 
   return el;
@@ -139,7 +139,7 @@ export async function exportToPDF(works) {
     const canvas = await html2canvas(el, {
       scale: 2,
       useCORS: true,
-      backgroundColor: "#fff",
+      backgroundColor: "#0d0c0a",
     });
 
     document.body.removeChild(container);

@@ -1018,13 +1018,13 @@ export default function ArtVault() {
               <Field label="Lieu d'entreposage">
                 <Input value={form.locationStorage} onChange={v => setForm(f => ({ ...f, locationStorage: v }))} placeholder="Salon, Chambre, Cave, Coffre…" />
               </Field>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: T.s3, border: `1px solid ${T.border}`, borderRadius: 4, cursor: "pointer" }}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: form.isInsured ? "#1e1d18" : T.s3, border: `1px solid ${form.isInsured ? T.gold : T.border}`, borderRadius: 4, cursor: "pointer", transition: "all 0.18s" }}
                 onClick={() => setForm(f => ({ ...f, isInsured: !f.isInsured }))}>
                 {form.isInsured
-                  ? <CheckCircle2 size={20} color={T.green} />
-                  : <Circle size={20} color={T.dim} />}
-                <span style={{ fontSize: "0.95rem", userSelect: "none" }}>Œuvre assurée</span>
-                {form.isInsured && <span style={{ marginLeft: "auto", color: T.green, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4 }}><Shield size={14} /> Assurée</span>}
+                  ? <CheckCircle2 size={20} color={T.gold} />
+                  : <Circle size={20} color={T.dim2} />}
+                <span style={{ fontSize: "0.95rem", userSelect: "none", color: form.isInsured ? T.gold : T.cream }}>Œuvre assurée</span>
+                {form.isInsured && <span style={{ marginLeft: "auto", color: T.gold, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4 }}><Shield size={14} /> Assurée</span>}
               </div>
               <Field label="Notes / Provenance">
                 <Textarea value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="Provenance, historique, conditions de conservation, état…" />

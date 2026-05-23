@@ -686,6 +686,8 @@ export default function ArtVault() {
         .tab-btn:hover { color: ${T.cream} !important; }
         .ghost-btn:hover { color: ${T.cyan} !important; }
         .row-hover:hover { background: ${T.s3} !important; }
+        ::placeholder { color: ${T.dim}; opacity: 1; }
+        ::-ms-input-placeholder { color: ${T.dim}; }
         @media (max-width: 768px) { .desk-only { display: none !important; } .resp-grid { grid-template-columns: 1fr !important; } .resp-cols { grid-template-columns: 1fr !important; } .resp-gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; } .tb-hide { display: none !important; } }
         @media (min-width: 769px) { .mob-only { display: none !important; } }
       `}</style>
@@ -837,7 +839,7 @@ export default function ArtVault() {
             <input
               placeholder="Rechercher…"
               value={search} onChange={e => setSearch(e.target.value)}
-              style={{ width: "100%", background: T.s3, color: T.cream, border: `1px solid ${T.border}`, borderRadius: 4, padding: "7px 10px 7px 32px", fontSize: "0.9rem", fontFamily: "inherit", outline: "none" }}
+              style={{ width: "100%", background: "#1e3a5f", color: T.cream, border: `1px solid ${T.border}`, borderRadius: 4, padding: "7px 10px 7px 32px", fontSize: "0.9rem", fontFamily: "inherit", outline: "none" }}
             />
             {search && (
               <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex" }}>
@@ -1018,13 +1020,13 @@ export default function ArtVault() {
               <Field label="Lieu d'entreposage">
                 <Input value={form.locationStorage} onChange={v => setForm(f => ({ ...f, locationStorage: v }))} placeholder="Salon, Chambre, Cave, Coffre…" />
               </Field>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: form.isInsured ? "#1e1d18" : T.s3, border: `1px solid ${form.isInsured ? T.gold : T.border}`, borderRadius: 4, cursor: "pointer", transition: "all 0.18s" }}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: form.isInsured ? T.s2 : T.s3, border: `1px solid ${form.isInsured ? T.accent : T.border}`, borderRadius: 4, cursor: "pointer", transition: "all 0.18s" }}
                 onClick={() => setForm(f => ({ ...f, isInsured: !f.isInsured }))}>
                 {form.isInsured
-                  ? <CheckCircle2 size={20} color={T.gold} />
+                  ? <CheckCircle2 size={20} color={T.accent} />
                   : <Circle size={20} color={T.dim2} />}
-                <span style={{ fontSize: "0.95rem", userSelect: "none", color: form.isInsured ? T.gold : T.cream }}>Œuvre assurée</span>
-                {form.isInsured && <span style={{ marginLeft: "auto", color: T.gold, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4 }}><Shield size={14} /> Assurée</span>}
+                <span style={{ fontSize: "0.95rem", userSelect: "none", color: form.isInsured ? T.accent : T.cream }}>Œuvre assurée</span>
+                {form.isInsured && <span style={{ marginLeft: "auto", color: T.accent, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4 }}><Shield size={14} /> Assurée</span>}
               </div>
               <Field label="Notes / Provenance">
                 <Textarea value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="Provenance, historique, conditions de conservation, état…" />

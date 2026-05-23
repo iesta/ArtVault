@@ -3,7 +3,7 @@ import {
   Plus, ArrowLeft, Edit2, Trash2, LayoutGrid, List, Search,
   CheckCircle2, Circle, Download, X, ChevronLeft, ChevronRight,
   Image as ImageIcon, FileText, Shield, ShieldOff, SortAsc, SortDesc,
-  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu
+  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu, Settings, Smartphone, Info, FileSpreadsheet
 } from "lucide-react";
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
@@ -233,7 +233,12 @@ export default function ArtVault() {
   const [fileErr,  setFileErr]  = useState("");
   const [exporting, setExporting] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [xlsLoading, setXlsLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [prefPanel, setPrefPanel] = useState(false);
+  const [iosInstallModal, setIosInstallModal] = useState(false);
 
   // Form state
   const [editWork, setEditWork] = useState(null);
@@ -258,6 +263,8 @@ export default function ArtVault() {
 
   const photoRef = useRef();
   const cameraRef = useRef();
+  const videoRef = useRef();
+  const streamRef = useRef(null);
   const expRef   = useRef();
   const attRef   = useRef();
 
@@ -274,6 +281,37 @@ export default function ArtVault() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── Camera stream ─────────────────────────────────────────────
+  useEffect(() => {
+    if (cameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraOpen]);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  // ── PWA install ───────────────────────────────────────────────
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+  };
+
+  const handleInstallIOS = () => {
+    setIosInstallModal(true);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -613,19 +651,70 @@ export default function ArtVault() {
     setPdfLoading(false);
   };
 
-  // ── Photo / PDF handlers ──────────────────────────────────────
-  const addPhoto = async e => {
-    const file = e.target.files?.[0]; if (!file) return;
-    if (fPhotos.length >= 5) { setFileErr("Maximum 5 photos."); return; }
+  // ── Export XLS ──────────────────────────────────────────────────
+  const handleExportXLS = async () => {
+    if (!works.length) return;
+    setXlsLoading(true);
     try {
-      const img = await compressImage(file);
-      setFPhotos(p => [...p, { ...img, _temp: true }]);
-    } catch (err) { setFileErr(err.message); }
-    e.target.value = "";
+      const XLSX = await import("xlsx");
+      const rows = works.map(w => ({
+        Artiste: w.artist,
+        Titre: w.title,
+        Technique: w.technique || "",
+        Date: w.date_work || "",
+        "Lieu d'entreposage": w.location_storage || "",
+        Largeur: w.width || "",
+        Hauteur: w.height || "",
+        Profondeur: w.depth || "",
+        Unité: w.dimension_unit || "cm",
+        "Date d'achat": w.date_purchase || "",
+        "Lieu d'achat": w.location_purchase || "",
+        "Valeur d'achat (€)": w.value_purchase || "",
+        "Valeur actuelle (€)": w.value_current || "",
+        Assurée: w.is_insured ? "Oui" : "Non",
+        Notes: w.notes || "",
+        Créée: w.created_at ? new Date(w.created_at).toLocaleDateString("fr-FR") : "",
+        Photos: w.photos?.length || 0,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Collection");
+      const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: 22 }));
+      ws["!cols"] = colWidths;
+      XLSX.writeFile(wb, `ArtVault_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (err) {
+      setFileErr("Erreur d'export XLS : " + err.message);
+    }
+    setXlsLoading(false);
   };
 
-  const removeFormPhoto = i => {
-    setFPhotos(ps => ps.filter((_, j) => j !== i));
+  // ── Camera ─────────────────────────────────────────────────────
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      setCameraOpen(true);
+    } catch {
+      cameraRef.current?.click();
+    }
+  };
+
+  const captureFromCamera = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const cv = document.createElement("canvas");
+    cv.width = video.videoWidth;
+    cv.height = video.videoHeight;
+    cv.getContext("2d").drawImage(video, 0, 0);
+    const data = cv.toDataURL("image/jpeg", 0.78);
+    stopCamera();
+    setFPhotos(p => [...p, { data, name: `camera_${Date.now()}.jpg`, _temp: true }]);
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setCameraOpen(false);
   };
 
   const addPDF = async (e, setter) => {
@@ -686,6 +775,8 @@ export default function ArtVault() {
         .art-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important; }
         .tab-btn:hover { color: ${T.cream} !important; }
         .ghost-btn:hover { color: ${T.cyan} !important; }
+        .menu-item:hover { background: ${T.s3} !important; }
+        @media (max-width: 768px) { .menu-hamburger { position: fixed !important; top: 58px !important; left: 0 !important; right: 0 !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; } }
         .row-hover:hover { background: ${T.s3} !important; }
         ::placeholder { color: ${T.dim}; opacity: 1; }
         ::-ms-input-placeholder { color: ${T.dim}; }
@@ -728,7 +819,7 @@ export default function ArtVault() {
         </div>
 
         {/* ── RIGHT NAV ─────────────────────────────────────── */}
-        <div className="desk-only" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {screen === "gallery" && (
             <>
               <button className="ghost-btn" onClick={() => setGridMode(true)}
@@ -738,22 +829,6 @@ export default function ArtVault() {
               <button className="ghost-btn" onClick={() => setGridMode(false)}
                 style={{ background: "none", border: "none", color: !gridMode ? T.accent : T.dim, cursor: "pointer", padding: 6, transition: "color 0.2s", display: "flex" }}>
                 <List size={20} />
-              </button>
-              <button className="ghost-btn" onClick={handleExportPDF} disabled={pdfLoading || works.length === 0}
-                style={{ background: "none", border: "none", color: T.dim, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: 6, display: "flex", transition: "color 0.2s", opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}
-                title="Export PDF catalogue">
-                <FileText size={19} />
-              </button>
-              <button className="ghost-btn" onClick={handleExport} disabled={exporting || works.length === 0}
-                style={{ background: "none", border: "none", color: T.dim, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: 6, display: "flex", transition: "color 0.2s", opacity: exporting || works.length === 0 ? 0.5 : 1 }}
-                title="Export ZIP collection">
-                <Archive size={20} />
-              </button>
-              <div style={{ width: 1, height: 20, background: T.border, margin: "0 4px" }} />
-              <button className="ghost-btn" onClick={handleLogout}
-                style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: 6, display: "flex", transition: "color 0.2s" }}
-                title="Déconnexion">
-                <LogOut size={19} />
               </button>
             </>
           )}
@@ -773,63 +848,71 @@ export default function ArtVault() {
               <Save size={14} /> {saving ? "Enregistrement…" : editWork ? "Mettre à jour" : "Enregistrer"}
             </Btn>
           )}
-        </div>
 
-        {/* ── MOBILE HAMBURGER ───────────────────────────────── */}
-        <button className="mob-only" onClick={() => setMenuOpen(o => !o)}
-          style={{ background: "none", border: "none", color: T.cream, cursor: "pointer", padding: 6, display: "flex" }}>
-          <Menu size={22} />
-        </button>
+          {/* ── HAMBURGER ───────────────────────────────────── */}
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setMenuOpen(o => !o)}
+              style={{ background: "none", border: "none", color: T.cream, cursor: "pointer", padding: 6, display: "flex" }}>
+              <Menu size={22} />
+            </button>
 
-        {/* ── MOBILE MENU OVERLAY ────────────────────────────── */}
-        {menuOpen && (
-          <>
-            <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 98 }} />
-            <div style={{ position: "fixed", top: 58, left: 0, right: 0, background: T.s1, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", zIndex: 99, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-            {screen === "gallery" && (
+            {menuOpen && (
               <>
-                <button className="ghost-btn" onClick={() => { setGridMode(true); setMenuOpen(false); }}
-                  style={{ background: "none", border: `1px solid ${gridMode ? T.accent : T.border}`, color: gridMode ? T.accent : T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
-                  <LayoutGrid size={18} /> Mode grille
-                </button>
-                <button className="ghost-btn" onClick={() => { setGridMode(false); setMenuOpen(false); }}
-                  style={{ background: "none", border: `1px solid ${!gridMode ? T.accent : T.border}`, color: !gridMode ? T.accent : T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
-                  <List size={18} /> Mode liste
-                </button>
-                <button className="ghost-btn" onClick={() => { handleExportPDF(); setMenuOpen(false); }} disabled={pdfLoading || works.length === 0}
-                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem", opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}>
-                  <FileText size={17} /> Export PDF
-                </button>
-                <button className="ghost-btn" onClick={() => { handleExport(); setMenuOpen(false); }} disabled={exporting || works.length === 0}
-                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem", opacity: exporting || works.length === 0 ? 0.5 : 1 }}>
-                  <Archive size={18} /> Export ZIP
-                </button>
-                <button className="ghost-btn" onClick={() => { handleLogout(); setMenuOpen(false); }}
-                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
-                  <LogOut size={17} /> Déconnexion
-                </button>
+                <div className="mob-only" onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 98 }} />
+                <div style={{
+                  position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 99,
+                  background: T.s1, border: `1px solid ${T.border}`, borderRadius: 6,
+                  padding: 6, minWidth: 210,
+                  display: "flex", flexDirection: "column", gap: 2,
+                }}
+                  className="menu-hamburger">
+                  {screen === "gallery" && (
+                    <>
+                      <button className="ghost-btn menu-item" onClick={() => { handleExportPDF(); setMenuOpen(false); }} disabled={pdfLoading || works.length === 0}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}>
+                        <FileText size={16} /> Export PDF
+                      </button>
+                      <button className="ghost-btn menu-item" onClick={() => { handleExport(); setMenuOpen(false); }} disabled={exporting || works.length === 0}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: exporting || works.length === 0 ? 0.5 : 1 }}>
+                        <Archive size={16} /> Export ZIP
+                      </button>
+                      <button className="ghost-btn menu-item" onClick={() => { handleExportXLS(); setMenuOpen(false); }} disabled={xlsLoading || works.length === 0}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: xlsLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: xlsLoading || works.length === 0 ? 0.5 : 1 }}>
+                        <FileSpreadsheet size={16} /> Export XLS
+                      </button>
+                      <div style={{ height: 1, background: T.border, margin: "3px 8px" }} />
+                      <button className="ghost-btn menu-item" onClick={() => { if (deferredPrompt) { handleInstall(); } else { handleInstallIOS(); } setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <Download size={16} /> Installer l'app
+                      </button>
+                      <button className="ghost-btn menu-item" onClick={() => { setPrefPanel(true); setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <Settings size={16} /> Préférences
+                      </button>
+                      <div style={{ height: 1, background: T.border, margin: "3px 8px" }} />
+                      <button className="ghost-btn menu-item" onClick={() => { handleLogout(); setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.red, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <LogOut size={16} /> Déconnexion
+                      </button>
+                    </>
+                  )}
+                  {screen === "detail" && (
+                    <>
+                      <button className="ghost-btn menu-item" onClick={() => { openEdit(detWork); setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <Edit2 size={16} /> Modifier
+                      </button>
+                      <button className="ghost-btn menu-item" onClick={() => { setDelModal(true); setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.red, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <Trash2 size={16} /> Supprimer
+                      </button>
+                    </>
+                  )}
+                </div>
               </>
-            )}
-            {screen === "detail" && (
-              <>
-                <button className="ghost-btn" onClick={() => { openEdit(detWork); setMenuOpen(false); }}
-                  style={{ background: "none", border: `1px solid ${T.border}`, color: T.dim, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
-                  <Edit2 size={16} /> Modifier
-                </button>
-                <button className="ghost-btn" onClick={() => { setDelModal(true); setMenuOpen(false); }}
-                  style={{ background: "none", border: `1px solid ${T.red}40`, color: T.red, borderRadius: 4, cursor: "pointer", padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: "0.9rem" }}>
-                  <Trash2 size={16} /> Supprimer
-                </button>
-              </>
-            )}
-            {screen === "form" && (
-              <Btn variant="primary" onClick={() => { handleSave(); setMenuOpen(false); }} disabled={saving} sx={{ width: "fit-content" }}>
-                <Save size={16} /> {saving ? "Enregistrement…" : editWork ? "Mettre à jour" : "Enregistrer"}
-              </Btn>
             )}
           </div>
-          </>
-        )}
+        </div>
       </nav>
 
       {/* ── SEARCH / SORT BAR ────────────────────────────────── */}
@@ -857,9 +940,9 @@ export default function ArtVault() {
               </button>
             ))}
           </div>
-          {(exporting || pdfLoading) && (
+          {(exporting || pdfLoading || xlsLoading) && (
             <span style={{ color: T.accent, fontSize: "0.82rem", fontStyle: "italic" }}>
-              {pdfLoading ? "Génération du PDF…" : "Export en cours…"}
+              {pdfLoading ? "Génération du PDF…" : xlsLoading ? "Génération du XLS…" : "Export en cours…"}
             </span>
           )}
         </div>
@@ -1172,13 +1255,13 @@ export default function ArtVault() {
                 ))}
                 {fPhotos.length < 5 && (
                   <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, marginTop: 4 }}>
-                    <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 16px", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, cursor: "pointer", color: T.dim, fontSize: "0.88rem", transition: "border-color 0.2s, color 0.2s" }}
+                    <div onClick={startCamera}
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 16px", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, cursor: "pointer", color: T.dim, fontSize: "0.88rem", transition: "border-color 0.2s, color 0.2s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
                       <Camera size={18} />
                       <span>Prendre photo</span>
-                      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={addPhoto} />
-                    </label>
+                    </div>
                     <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 16px", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, cursor: "pointer", color: T.dim, fontSize: "0.88rem", transition: "border-color 0.2s, color 0.2s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
@@ -1356,6 +1439,74 @@ export default function ArtVault() {
           </button>
           <img src={fullscreenPhoto} alt="" onClick={e => e.stopPropagation()}
             style={{ maxWidth: "95vw", maxHeight: "95vh", objectFit: "contain" }} />
+        </div>
+      )}
+
+      {/* ── CAMERA OVERLAY ──────────────────────────────────── */}
+      {cameraOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 600, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <video ref={videoRef} autoPlay playsInline
+            style={{ width: "100%", maxWidth: "100vw", maxHeight: "calc(100vh - 100px)", objectFit: "contain" }} />
+          <div style={{ position: "absolute", bottom: 30, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 40 }}>
+            <button onClick={stopCamera}
+              style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 48, height: 48, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <X size={22} />
+            </button>
+            <button onClick={captureFromCamera}
+              style={{ background: "#fff", border: "none", width: 64, height: 64, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>
+              <div style={{ width: 52, height: 52, borderRadius: "50%", border: "3px solid #333" }} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PREFERENCES PANEL ────────────────────────────────── */}
+      {prefPanel && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setPrefPanel(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, maxWidth: 400, width: "90%", maxHeight: "80vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+              <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.3rem", color: T.cream }}>Préférences</h2>
+              <button onClick={() => setPrefPanel(false)} style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex" }}><X size={20} /></button>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>À propos</div>
+              <div style={{ color: T.cream, fontSize: "0.95rem", lineHeight: 1.7 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Application</span> ArtVault</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Version</span> 1.0.0</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Description</span> Catalogue de collection d'art familial</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Technologie</span> React · Supabase · Vite</div>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Langue</div>
+              <div style={{ color: T.dim, fontSize: "0.88rem", fontStyle: "italic" }}>
+                Français (🇫🇷) · English (🇬🇧) <span style={{ color: T.dim, opacity: 0.6 }}>— à venir</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── iOS INSTALL MODAL ────────────────────────────────── */}
+      {iosInstallModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setIosInstallModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, maxWidth: 360, width: "90%", textAlign: "center" }}>
+            <Smartphone size={36} style={{ color: T.accent, marginBottom: 12 }} />
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.1rem", color: T.cream, marginBottom: 8 }}>Installer ArtVault</div>
+            <div style={{ color: T.dim, fontSize: "0.88rem", lineHeight: 1.7, marginBottom: 20, textAlign: "left" }}>
+              1. Tapez sur <strong style={{ color: T.cream }}>Partager</strong> <span style={{ fontSize: "1rem" }}>⎙</span><br />
+              2. Faites défiler et tapez <strong style={{ color: T.cream }}>Sur l'écran d'accueil</strong><br />
+              3. Tapez sur <strong style={{ color: T.cream }}>Ajouter</strong>
+            </div>
+            <button onClick={() => setIosInstallModal(false)}
+              style={{ background: T.accent, border: "none", color: T.bg, padding: "8px 24px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: "0.9rem", fontWeight: 600 }}>
+              Compris !
+            </button>
+          </div>
         </div>
       )}
     </div>

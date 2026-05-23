@@ -97,6 +97,89 @@ function buildPage(work, num, total) {
   return el;
 }
 
+function buildRecapPage(works) {
+  const el = document.createElement("div");
+  el.style.cssText = `width:${W}px;background:#eef2f7;color:#1e293b;font-family:Georgia,'Times New Roman',serif;padding:${P}px;box-sizing:border-box;display:flex;flex-direction:column;`;
+
+  const title = document.createElement("h1");
+  title.textContent = "Récapitulatif de la collection";
+  title.style.cssText = "font-size:24px;margin:0 0 4px;font-weight:600;color:#1e293b;text-align:center;";
+  el.appendChild(title);
+
+  const subtitle = document.createElement("div");
+  subtitle.textContent = `${works.length} œuvre${works.length > 1 ? "s" : ""}`;
+  subtitle.style.cssText = "font-size:13px;color:#64748b;text-align:center;margin-bottom:22px;font-style:italic;";
+  el.appendChild(subtitle);
+
+  const table = document.createElement("table");
+  table.style.cssText = "width:100%;border-collapse:collapse;font-size:11px;";
+
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  const headers = ["Titre", "Artiste", "Valeur actuelle", "Assurée"];
+  for (const h of headers) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    th.style.cssText = "text-align:left;padding:7px 6px;border-bottom:2px solid #94a3b8;color:#1e293b;font-weight:600;";
+    hr.appendChild(th);
+  }
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const w of works) {
+    const tr = document.createElement("tr");
+    const cells = [
+      w.title || "Sans titre",
+      w.artist || "—",
+      w.value_current ? eur(w.value_current) : "—",
+      w.is_insured ? "Oui" : "Non",
+    ];
+    for (const c of cells) {
+      const td = document.createElement("td");
+      td.textContent = c;
+      td.style.cssText = "padding:5px 6px;border-bottom:1px solid #cbd5e1;color:#334155;";
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  el.appendChild(table);
+
+  const footer = document.createElement("div");
+  footer.textContent = "ArtVault · Récapitulatif";
+  footer.style.cssText = "margin-top:auto;font-size:9px;color:#94a3b8;text-align:center;padding-top:24px;letter-spacing:0.08em;";
+  el.appendChild(footer);
+
+  return el;
+}
+
+async function renderElement(el, html2canvas) {
+  const container = document.createElement("div");
+  container.style.cssText = "position:fixed;left:-9999px;top:0;z-index:-1;";
+  container.appendChild(el);
+  document.body.appendChild(container);
+  const imgs = el.querySelectorAll("img");
+  await Promise.all(
+    [...imgs].map(
+      img =>
+        new Promise(res => {
+          if (img.complete) res();
+          else { img.onload = res; img.onerror = res; }
+        })
+    )
+  );
+  await new Promise(r => setTimeout(r, 300));
+  const canvas = await html2canvas(el, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#eef2f7",
+  });
+  document.body.removeChild(container);
+  return canvas;
+}
+
 export async function exportToPDF(works) {
   if (!works.length) return;
 
@@ -105,36 +188,21 @@ export async function exportToPDF(works) {
   const pdf = new jsPDF("p", "pt", "a4");
   const PAGE_H = 841.89;
 
+  // Recap page
+  const recapEl = buildRecapPage(works);
+  const recapCanvas = await renderElement(recapEl, html2canvas);
+  const recapRatio = recapCanvas.height / recapCanvas.width;
+  const recapPageH = recapRatio * 595.28;
+  if (recapPageH > PAGE_H) {
+    pdf.addImage(recapCanvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, (PAGE_H / recapPageH) * 595.28, PAGE_H);
+  } else {
+    pdf.addImage(recapCanvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 595.28, recapPageH);
+  }
+
   for (let i = 0; i < works.length; i++) {
     const el = buildPage(works[i], i + 1, works.length);
-
-    const container = document.createElement("div");
-    container.style.cssText = "position:fixed;left:-9999px;top:0;z-index:-1;";
-    container.appendChild(el);
-    document.body.appendChild(container);
-
-    // Wait for images
-    const imgs = el.querySelectorAll("img");
-    await Promise.all(
-      [...imgs].map(
-        img =>
-          new Promise(res => {
-            if (img.complete) res();
-            else { img.onload = res; img.onerror = res; }
-          })
-      )
-    );
-    await new Promise(r => setTimeout(r, 300));
-
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#eef2f7",
-    });
-
-    document.body.removeChild(container);
-
-    if (i > 0) pdf.addPage();
+    const canvas = await renderElement(el, html2canvas);
+    pdf.addPage();
 
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
     const ratio = canvas.height / canvas.width;

@@ -3,10 +3,11 @@ import {
   Plus, ArrowLeft, Edit2, Trash2, LayoutGrid, List, Search,
   CheckCircle2, Circle, Download, X, ChevronLeft, ChevronRight,
   Image as ImageIcon, FileText, Shield, ShieldOff, SortAsc, SortDesc,
-  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu, Settings, Smartphone, Info, FileSpreadsheet
+  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu, Settings, Smartphone, Info, FileSpreadsheet, Share2, Copy, Check, Link as LinkIcon
 } from "lucide-react";
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
+import ShareView from "./ShareView";
 
 /* ═══════════════════════════════════════════════════════════════
    ArtVault — Catalogue de collection familiale
@@ -225,6 +226,7 @@ export default function ArtVault() {
   const [screen,   setScreen]  = useState("gallery");
   const [gridMode, setGridMode] = useState(true);
   const [search,   setSearch]  = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
   const [sortField, setSortField] = useState("artist");
   const [sortDir,  setSortDir]  = useState("asc");
   const [loading,  setLoading]  = useState(true);
@@ -239,6 +241,13 @@ export default function ArtVault() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [prefPanel, setPrefPanel] = useState(false);
   const [iosInstallModal, setIosInstallModal] = useState(false);
+  const [shareToken, setShareToken] = useState(null);
+  const [shareData, setShareData] = useState(null);
+  const [shareDialog, setShareDialog] = useState(false);
+  const [showValuesShare, setShowValuesShare] = useState(true);
+  const [shareLink, setShareLink] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [shareErr, setShareErr] = useState("");
 
   // Form state
   const [editWork, setEditWork] = useState(null);
@@ -247,6 +256,7 @@ export default function ArtVault() {
   const [fPhotos,  setFPhotos]  = useState([]);
   const [fExp,     setFExp]     = useState(null);
   const [fAtt,     setFAtt]     = useState(null);
+  const [fTags,    setFTags]    = useState([]);
 
   // Detail state
   const [detWork,  setDetWork]  = useState(null);
@@ -313,6 +323,43 @@ export default function ArtVault() {
     setIosInstallModal(true);
   };
 
+  // ── Share route detection ───────────────────────────────────────
+  useEffect(() => {
+    const m = window.location.pathname.match(/^\/share\/([\w-]+)$/);
+    if (m) setShareToken(m[1]);
+  }, []);
+
+  useEffect(() => {
+    if (!shareToken) return;
+    supabase.rpc("get_shared_collection", { token: shareToken }).then(({ data, error }) => {
+      setShareData(error ? { error: "invalid_token" } : data);
+    });
+  }, [shareToken]);
+
+  const handleCreateShare = async () => {
+    setShareErr("");
+    const token = crypto.randomUUID();
+    const { error } = await supabase.from("share_links").insert({
+      user_id: session.user.id,
+      token,
+      show_values: showValuesShare,
+    });
+    if (error) { setShareErr(error.message); return; }
+    const url = `${window.location.origin}/share/${token}`;
+    setShareLink(url);
+    try { await navigator.clipboard.writeText(url); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
+  };
+
+  const handleRevokeShare = async () => {
+    if (!shareLink) return;
+    const token = shareLink.split("/").pop();
+    await supabase.from("share_links").delete().eq("token", token);
+    setShareLink("");
+    setShareErr("");
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setScreen("gallery");
@@ -371,7 +418,7 @@ export default function ArtVault() {
 
   const openAdd = () => {
     setEditWork(null); setForm(BLANK); setFormTab("info");
-    setFPhotos([]); setFExp(null); setFAtt(null); setFileErr("");
+    setFPhotos([]); setFExp(null); setFAtt(null); setFTags([]); setFileErr("");
     setScreen("form");
   };
 
@@ -401,6 +448,8 @@ export default function ArtVault() {
     } else {
       setFAtt(null);
     }
+
+    setFTags(w.tags || []);
 
     setScreen("form");
   };
@@ -514,6 +563,7 @@ export default function ArtVault() {
         photos: newPhotoRecords,
         expertise: expertiseRecord,
         certificate: certificateRecord,
+        tags: fTags,
         updated_at: new Date().toISOString(),
         user_id: userId,
       };
@@ -728,9 +778,14 @@ export default function ArtVault() {
 
   // ── Filtered & sorted ─────────────────────────────────────────
   const filtered = works.filter(w => {
+    if (selectedTags.length) {
+      const wt = w.tags || [];
+      if (!selectedTags.every(t => wt.includes(t))) return false;
+    }
     if (!search) return true;
     const q = search.toLowerCase();
     return [w.title, w.artist, w.technique, w.location_storage, w.location_purchase]
+      .concat(w.tags?.map(t => " " + t) || [])
       .some(f => f?.toLowerCase().includes(q));
   }).sort((a, b) => {
     let va = a[sortField] ?? "", vb = b[sortField] ?? "";
@@ -762,6 +817,7 @@ export default function ArtVault() {
   }
 
   // ── Render ────────────────────────────────────────────────────
+  if (shareToken) return <ShareView data={shareData} />;
   return (
 <div style={{ background: T.bg, minHeight: "100vh", color: T.cream, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: "1.05rem" }}>
       <style>{`
@@ -885,6 +941,10 @@ export default function ArtVault() {
                         style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
                         <Download size={16} /> Installer l'app
                       </button>
+                      <button className="ghost-btn menu-item" onClick={() => { setShareDialog(true); setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <Share2 size={16} /> Partager
+                      </button>
                       <button className="ghost-btn menu-item" onClick={() => { setPrefPanel(true); setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
                         <Settings size={16} /> Préférences
@@ -931,6 +991,32 @@ export default function ArtVault() {
               </button>
             )}
           </div>
+          {(() => {
+            const allTags = [...new Set(works.flatMap(w => w.tags || []))];
+            if (!allTags.length) return null;
+            return (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ color: T.dim, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                  <Tag size={13} /> Tags :
+                </span>
+                {allTags.map(t => {
+                  const active = selectedTags.includes(t);
+                  return (
+                    <button key={t} onClick={() => setSelectedTags(ts => active ? ts.filter(x => x !== t) : [...ts, t])}
+                      style={{ background: active ? T.accent : T.s3, border: `1px solid ${active ? T.accent : T.border}`, color: active ? T.bg : T.dim, borderRadius: 12, padding: "3px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
+                      {t}
+                    </button>
+                  );
+                })}
+                {!!selectedTags.length && (
+                  <button onClick={() => setSelectedTags([])}
+                    style={{ background: "none", border: "none", color: T.dim, fontSize: "0.75rem", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", padding: 2, opacity: 0.6 }}>
+                    Effacer
+                  </button>
+                )}
+              </div>
+            );
+          })()}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {[["artist","Artiste"],["title","Titre"],["value_current","Valeur"],["location_storage","Lieu"],["is_insured","Assurée"]].map(([f, l]) => (
               <button key={f} onClick={() => toggleSort(f)} className="ghost-btn"
@@ -1115,6 +1201,28 @@ export default function ArtVault() {
               <Field label="Notes / Provenance">
                 <Textarea value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="Provenance, historique, conditions de conservation, état…" />
               </Field>
+              <Field label="Tags">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 10px", background: T.s3, border: `1px solid ${T.border}`, borderRadius: 4, minHeight: 40, alignItems: "center" }}>
+                  {fTags.map(t => (
+                    <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: T.s2, color: T.cream, fontSize: "0.82rem", padding: "2px 8px", borderRadius: 12, border: `1px solid ${T.border}` }}>
+                      {t}
+                      <button onClick={() => setFTags(ts => ts.filter(x => x !== t))} style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex", padding: 0, fontSize: "1rem", lineHeight: 1 }}>×</button>
+                    </span>
+                  ))}
+                  <input
+                    placeholder={fTags.length ? "Ajouter…" : "Saisir un tag et valider avec Entrée"}
+                    style={{ flex: 1, minWidth: 120, background: "none", border: "none", color: T.cream, fontSize: "0.88rem", fontFamily: "inherit", outline: "none" }}
+                    onKeyDown={e => {
+                      if ((e.key === "Enter" || e.key === ",") && e.target.value.trim()) {
+                        e.preventDefault();
+                        const v = e.target.value.trim().replace(/,+$/, "");
+                        if (v && !fTags.includes(v)) setFTags(ts => [...ts, v]);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                </div>
+              </Field>
             </div>
           )}
 
@@ -1293,6 +1401,11 @@ export default function ArtVault() {
                   <CheckCircle2 size={12} /> Assurée
                 </span>
               )}
+              {(detWork.tags || []).map(t => (
+                <span key={t} style={{ background: T.s2, border: `1px solid ${T.accent}40`, color: T.accent, padding: "3px 10px", borderRadius: 12, fontSize: "0.78rem" }}>
+                  {t}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -1486,6 +1599,54 @@ export default function ArtVault() {
                 Français (🇫🇷) · English (🇬🇧) <span style={{ color: T.dim, opacity: 0.6 }}>— à venir</span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SHARE DIALOG ──────────────────────────────────────── */}
+      {shareDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => { setShareDialog(false); setShareLink(""); setShareErr(""); }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, maxWidth: 400, width: "90%", textAlign: "center" }}>
+            <Share2 size={32} style={{ color: T.accent, marginBottom: 12 }} />
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.1rem", color: T.cream, marginBottom: 6 }}>Partager la collection</div>
+            <div style={{ color: T.dim, fontSize: "0.85rem", marginBottom: 20, lineHeight: 1.6 }}>
+              Générez un lien privé pour partager votre collection en lecture seule.
+            </div>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, cursor: "pointer", marginBottom: 18, textAlign: "left" }}
+              onClick={() => setShowValuesShare(v => !v)}>
+              <div style={{ width: 20, height: 20, borderRadius: 3, border: `2px solid ${showValuesShare ? T.accent : T.border}`, background: showValuesShare ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+                {showValuesShare && <Check size={14} color={T.bg} />}
+              </div>
+              <div>
+                <div style={{ color: T.cream, fontSize: "0.9rem", fontWeight: 500 }}>Inclure les valeurs</div>
+                <div style={{ color: T.dim, fontSize: "0.8rem" }}>Prix d'achat et estimation actuelle</div>
+              </div>
+            </label>
+
+            {!shareLink ? (
+              <>
+                <Btn variant="primary" onClick={handleCreateShare} sx={{ width: "100%", padding: "10px 0" }}>
+                  <LinkIcon size={16} /> Générer le lien
+                </Btn>
+                {shareErr && <div style={{ color: T.red, fontSize: "0.82rem", marginTop: 8 }}>{shareErr}</div>}
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, padding: "8px 12px" }}>
+                  <input readOnly value={shareLink} style={{ flex: 1, background: "none", border: "none", color: T.cream, fontSize: "0.82rem", fontFamily: "monospace", outline: "none" }} />
+                  <button onClick={() => { navigator.clipboard.writeText(shareLink); setCopied(true); setTimeout(() => setCopied(false), 2500); }}
+                    style={{ background: "none", border: "none", color: copied ? T.green : T.accent, cursor: "pointer", display: "flex", padding: 4 }}>
+                    {copied ? <Check size={18} /> : <Copy size={18} />}
+                  </button>
+                </div>
+                {copied && <div style={{ color: T.green, fontSize: "0.82rem" }}>Lien copié !</div>}
+                <button onClick={handleRevokeShare} style={{ background: "none", border: "none", color: T.red, cursor: "pointer", fontSize: "0.85rem", fontFamily: "inherit", padding: 6 }}>
+                  Révoquer le lien
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

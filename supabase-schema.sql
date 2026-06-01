@@ -79,3 +79,83 @@ CREATE POLICY "Authenticated users can upload documents"
 CREATE POLICY "Authenticated users can delete documents"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'artwork-documents' AND auth.role() = 'authenticated');
+
+-- 5. Share links ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS share_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  show_values BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE share_links ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view share links"
+  ON share_links FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can insert own share links"
+  ON share_links FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own share links"
+  ON share_links FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- 6. RPC function for shared collection (bypass RLS, called by anon) ─
+CREATE OR REPLACE FUNCTION get_shared_collection(token text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  share_user_id uuid;
+  share_show_vals boolean;
+  result jsonb;
+BEGIN
+  SELECT sl.user_id, sl.show_values INTO share_user_id, share_show_vals
+  FROM share_links sl WHERE sl.token = get_shared_collection.token;
+
+  IF share_user_id IS NULL THEN
+    RETURN jsonb_build_object('error', 'invalid_token');
+  END IF;
+
+  SELECT jsonb_build_object(
+    'show_values', share_show_vals,
+    'artworks', COALESCE(jsonb_agg(
+      jsonb_build_object(
+        'id', a.id,
+        'artist', a.artist,
+        'title', a.title,
+        'technique', a.technique,
+        'date_work', a.date_work,
+        'location_storage', a.location_storage,
+        'width', a.width,
+        'height', a.height,
+        'depth', a.depth,
+        'dimension_unit', a.dimension_unit,
+        'photos', a.photos,
+        'is_insured', a.is_insured,
+        'notes', a.notes,
+        'value_purchase', a.value_purchase,
+        'value_current', a.value_current,
+        'date_purchase', a.date_purchase,
+        'location_purchase', a.location_purchase,
+        'created_at', a.created_at
+      )
+      ORDER BY a.created_at
+    ), '[]'::jsonb)
+  ) INTO result
+  FROM artworks a
+  WHERE a.user_id = share_user_id;
+
+  RETURN result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_shared_collection TO anon;
+
+-- 7. Tags ──────────────────────────────────────────────────────────
+ALTER TABLE artworks ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';

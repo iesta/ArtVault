@@ -220,6 +220,7 @@ export default function ArtVault() {
   const [gridMode, setGridMode] = useState(true);
   const [search,   setSearch]  = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
+  const [showTagFilter, setShowTagFilter] = useState(false);
   const [sortField, setSortField] = useState("artist");
   const [sortDir,  setSortDir]  = useState("asc");
   const [loading,  setLoading]  = useState(true);
@@ -593,6 +594,58 @@ export default function ArtVault() {
       setFileErr("Erreur: " + err.message);
     }
   };
+
+  // ── Cmd/Ctrl+S save shortcut ───────────────────────────────
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => {
+    const handler = e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s" && screenRef.current === "form") {
+        e.preventDefault();
+        handleSaveRef.current();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // ── E key → edit detail ─────────────────────────────────────
+  const detWorkRef = useRef(detWork);
+  detWorkRef.current = detWork;
+  const openEditRef = useRef(openEdit);
+  openEditRef.current = openEdit;
+  useEffect(() => {
+    const handler = e => {
+      if ((e.key === "e" || e.key === "E") && screenRef.current === "detail" && detWorkRef.current) {
+        openEditRef.current(detWorkRef.current);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // ── ESC → return from edit to detail ─────────────────────────
+  const editWorkRef = useRef(editWork);
+  editWorkRef.current = editWork;
+  const openDetailRef = useRef(openDetail);
+  openDetailRef.current = openDetail;
+  const goGalleryRef = useRef(goGallery);
+  goGalleryRef.current = goGallery;
+  useEffect(() => {
+    const handler = e => {
+      if (e.key === "Escape" && screenRef.current === "form") {
+        if (editWorkRef.current) {
+          openDetailRef.current(editWorkRef.current);
+        } else {
+          goGalleryRef.current();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   // ── Delete ────────────────────────────────────────────────────
   const handleDelete = async () => {
@@ -984,25 +1037,42 @@ export default function ArtVault() {
 
       {/* ── SEARCH / SORT BAR ────────────────────────────────── */}
       {screen === "gallery" && (
-        <div style={{ background: T.s1, borderBottom: `1px solid ${T.border}`, padding: "10px 20px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 160, maxWidth: 380, position: "relative", display: "flex", alignItems: "center" }}>
-            <Search size={17} style={{ position: "absolute", left: 10, color: T.dim, pointerEvents: "none" }} />
-            <input
-              placeholder="Rechercher…"
-              value={search} onChange={e => setSearch(e.target.value)}
-              style={{ width: "100%", background: "#1e3a5f", color: T.cream, border: `1px solid ${T.border}`, borderRadius: 4, padding: "7px 10px 7px 32px", fontSize: "0.9rem", fontFamily: "inherit", outline: "none" }}
-            />
-            {search && (
-              <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex" }}>
-                <X size={14} />
-              </button>
+        <div style={{ background: T.s1, borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ padding: "10px 20px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 160, maxWidth: 380, position: "relative", display: "flex", alignItems: "center" }}>
+              <Search size={17} style={{ position: "absolute", left: 10, color: T.dim, pointerEvents: "none" }} />
+              <input
+                placeholder="Rechercher…"
+                value={search} onChange={e => setSearch(e.target.value)}
+                style={{ width: "100%", background: "#1e3a5f", color: T.cream, border: `1px solid ${T.border}`, borderRadius: 4, padding: "7px 10px 7px 32px", fontSize: "0.9rem", fontFamily: "inherit", outline: "none" }}
+              />
+              {search && (
+                <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex" }}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {[["artist","Artiste"],["title","Titre"],["value_current","Valeur"],["location_storage","Lieu"],["is_insured","Assurée"],["tags","Tags"]].map(([f, l]) => (
+                <button key={f} onClick={() => f === "tags" ? setShowTagFilter(s => !s) : toggleSort(f)} className="ghost-btn"
+                  style={{ background: "none", border: `1px solid ${f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.border}`, color: f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.dim, borderRadius: 3, padding: "5px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, transition: "all 0.18s" }}>
+                  {l}
+                  {f !== "tags" && sortField === f && (sortDir === "asc" ? <SortAsc size={12} /> : <SortDesc size={12} />)}
+                </button>
+              ))}
+            </div>
+            {(exporting || pdfLoading || xlsLoading) && (
+              <span style={{ color: T.accent, fontSize: "0.82rem", fontStyle: "italic" }}>
+                {pdfLoading ? "Génération du PDF…" : xlsLoading ? "Génération du XLS…" : "Export en cours…"}
+              </span>
             )}
           </div>
-          {(() => {
+
+          {showTagFilter && (() => {
             const allTags = [...new Set(works.flatMap(w => w.tags || []))];
             if (!allTags.length) return null;
             return (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ padding: "0 20px 10px 20px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ color: T.dim, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
                   <Tag size={13} /> Tags :
                 </span>
@@ -1024,20 +1094,6 @@ export default function ArtVault() {
               </div>
             );
           })()}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {[["artist","Artiste"],["title","Titre"],["value_current","Valeur"],["location_storage","Lieu"],["is_insured","Assurée"]].map(([f, l]) => (
-              <button key={f} onClick={() => toggleSort(f)} className="ghost-btn"
-                style={{ background: "none", border: `1px solid ${sortField === f ? T.cyan : T.border}`, color: sortField === f ? T.cyan : T.dim, borderRadius: 3, padding: "5px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, transition: "all 0.18s" }}>
-                {l}
-                {sortField === f && (sortDir === "asc" ? <SortAsc size={12} /> : <SortDesc size={12} />)}
-              </button>
-            ))}
-          </div>
-          {(exporting || pdfLoading || xlsLoading) && (
-            <span style={{ color: T.accent, fontSize: "0.82rem", fontStyle: "italic" }}>
-              {pdfLoading ? "Génération du PDF…" : xlsLoading ? "Génération du XLS…" : "Export en cours…"}
-            </span>
-          )}
         </div>
       )}
 
@@ -1121,13 +1177,14 @@ export default function ArtVault() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${T.accent}40` }}>
+                  <th style={{ width: 48, padding: "10px 12px 10px 4px" }}></th>
                   {[
                     ["artist","Artiste"], ["title","Titre"], ["technique","Technique"],
                     ["date_work","Date"], ["location_storage","Lieu"],
                     ["value_purchase","Achat"], ["value_current","Valeur act."], ["is_insured","Ass."]
                   ].map(([f, l]) => (
                     <th key={f} onClick={() => toggleSort(f)}
-                      className={["technique","date_work","location_storage","value_purchase"].includes(f) ? "tb-hide" : ""}
+                      className={["technique","date_work","location_storage","value_purchase","is_insured"].includes(f) ? "tb-hide" : ""}
                       style={{ textAlign: "left", padding: "10px 12px", color: sortField === f ? T.accent : T.dim, fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase", fontSize: "0.75rem", cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                         {l} {sortField === f && (sortDir === "asc" ? "↑" : "↓")}
@@ -1137,17 +1194,25 @@ export default function ArtVault() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((w, i) => (
-                  <tr key={w.id} className="row-hover" onClick={() => openDetail(w)}
-                    style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer", background: i % 2 === 0 ? "transparent" : T.s1, transition: "background 0.15s" }}>
-                    <td style={{ padding: "10px 12px", color: T.cream, fontStyle: "italic" }}>{w.artist || "—"}</td>
+                  {filtered.map((w, i) => (
+                    <tr key={w.id} className="row-hover" onClick={() => openDetail(w)}
+                      style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer", background: i % 2 === 0 ? "transparent" : T.s1, transition: "background 0.15s" }}>
+                      <td style={{ padding: "8px 12px 8px 4px", width: 48 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 4, overflow: "hidden", background: T.s3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {thumbs[w.id]
+                            ? <img src={thumbs[w.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            : <ImageIcon size={16} color={T.border} />
+                          }
+                        </div>
+                      </td>
+                      <td style={{ padding: "10px 12px", color: T.cream, fontStyle: "italic" }}>{w.artist || "—"}</td>
                     <td style={{ padding: "10px 12px" }}>{w.title || "—"}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.technique || "—"}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.date_work || "—"}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.location_storage || "—"}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{eur(w.value_purchase)}</td>
                     <td style={{ padding: "10px 12px", color: T.accent }}>{eur(w.value_current)}</td>
-                    <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                    <td className="tb-hide" style={{ padding: "10px 12px", textAlign: "center" }}>
                       {w.is_insured ? <CheckCircle2 size={15} color={T.green} /> : <Circle size={15} color={T.border} />}
                     </td>
                   </tr>

@@ -757,6 +757,15 @@ export default function ArtVault() {
     setFPhotos(p => [...p, { data, name: `camera_${Date.now()}.jpg`, _temp: true }]);
   };
 
+  const addPhoto = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setFPhotos(p => [...p, { data: ev.target.result, name: file.name, _temp: true }]);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -1154,7 +1163,7 @@ export default function ArtVault() {
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 20px 80px" }}>
           {/* Tabs */}
           <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 28, overflowX: "auto" }}>
-            {[["info","Informations"],["dims","Dimensions"],["finance","Finance"],["docs","Documents"],["photos","Photos"]].map(([t, l]) => (
+            {[["info","Infos"],["photos","Photos"],["dims","Dimensions"],["finance","Finance"],["docs","Documents"]].map(([t, l]) => (
               <button key={t} className="tab-btn" onClick={() => setFormTab(t)}
                 style={{ background: "none", border: "none", borderBottom: `2px solid ${formTab === t ? T.cyan : "transparent"}`, color: formTab === t ? T.cyan : T.dim, padding: "10px 20px", fontSize: "0.88rem", letterSpacing: "0.07em", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "color 0.18s" }}>
                 {l}

@@ -120,25 +120,12 @@ function dataURLToFile(dataURL, filename) {
 }
 
 // ── Theme (blue-gray) ─────────────────────────────────────────
-const T = {
-  bg:      "#122c44",
-  s1:      "#336699",
-  s2:      "#244d6b",
-  s3:      "#4d7fa6",
-  border:  "#4a6a80",
-  accent:  "#3fc1c9",
-  cream:   "#f0e6d2",
-  dim:     "#a8b8c0",
-  dim2:    "#7a8a90",
-  green:   "#3a8050",
-  red:     "#b03535",
-  cyan:    "#3fc1c9",
-  blue:    "#7ec8e3",
-};
+import { themes, ThemeContext, useTheme, loadTheme, saveTheme, themeGroups, themeLabels } from "./themes";
 
 // ── Small reusable components ─────────────────────────────────
 
 function Btn({ children, onClick, variant = "outline", disabled, style: sx, ...props }) {
+  const T = useTheme();
   const base = {
     display: "inline-flex", alignItems: "center", gap: 6,
     padding: "8px 16px", borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer",
@@ -160,6 +147,7 @@ function Btn({ children, onClick, variant = "outline", disabled, style: sx, ...p
 }
 
 function Label({ children }) {
+  const T = useTheme();
   return <div style={{ color: T.dim, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>{children}</div>;
 }
 
@@ -173,6 +161,7 @@ function Field({ label, children }) {
 }
 
 function Input({ value, onChange, placeholder, type = "text", ...rest }) {
+  const T = useTheme();
   return (
     <input
       type={type} value={value} onChange={e => onChange(e.target.value)}
@@ -180,7 +169,7 @@ function Input({ value, onChange, placeholder, type = "text", ...rest }) {
       style={{
         width: "100%", background: T.s3, color: T.cream, border: `1px solid ${T.border}`,
         borderRadius: 4, padding: "9px 12px", fontSize: "0.95rem", fontFamily: "inherit",
-        outline: "none", colorScheme: "dark",
+        outline: "none", colorScheme: T.mode === "light" ? "light" : "dark",
       }}
 onFocus={e => e.target.style.borderColor = T.cyan}
                     onBlur={e => e.target.style.borderColor = T.border}
@@ -190,12 +179,13 @@ onFocus={e => e.target.style.borderColor = T.cyan}
 }
 
 function Select({ value, onChange, children }) {
+  const T = useTheme();
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
       style={{
         width: "100%", background: T.s3, color: T.cream, border: `1px solid ${T.border}`,
         borderRadius: 4, padding: "9px 12px", fontSize: "0.95rem", fontFamily: "inherit",
-        outline: "none", colorScheme: "dark", cursor: "pointer",
+        outline: "none", colorScheme: T.mode === "light" ? "light" : "dark", cursor: "pointer",
       }}>
       {children}
     </select>
@@ -203,6 +193,7 @@ function Select({ value, onChange, children }) {
 }
 
 function Textarea({ value, onChange, placeholder, rows = 4 }) {
+  const T = useTheme();
   return (
     <textarea value={value} onChange={e => onChange(e.target.value)}
       placeholder={placeholder} rows={rows}
@@ -221,6 +212,8 @@ onFocus={e => e.target.style.borderColor = T.cyan}
 export default function ArtVault() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [themeName, setThemeName] = useState(loadTheme);
+  const T = themes[themeName];
 
   const [works,    setWorks]    = useState([]);
   const [screen,   setScreen]  = useState("gallery");
@@ -322,6 +315,9 @@ export default function ArtVault() {
   const handleInstallIOS = () => {
     setIosInstallModal(true);
   };
+
+  // ── Persist theme ───────────────────────────────────────────────
+  useEffect(() => { saveTheme(themeName); }, [themeName]);
 
   // ── Share route detection ───────────────────────────────────────
   useEffect(() => {
@@ -803,8 +799,10 @@ export default function ArtVault() {
   const insuredCount = works.filter(w => w.is_insured).length;
 
   // ── Auth guard ─────────────────────────────────────────────────
+  const wrap = children => <ThemeContext.Provider value={T}>{children}</ThemeContext.Provider>;
+
   if (authLoading) {
-    return (
+    return wrap(
       <div style={{ background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');`}</style>
         <div style={{ color: T.cyan, fontStyle: "italic", letterSpacing: "0.1em" }}>Chargement…</div>
@@ -813,12 +811,12 @@ export default function ArtVault() {
   }
 
   if (!session) {
-    return <Auth />;
+    return wrap(<Auth />);
   }
 
   // ── Render ────────────────────────────────────────────────────
   if (shareToken) return <ShareView data={shareData} />;
-  return (
+  return wrap(
 <div style={{ background: T.bg, minHeight: "100vh", color: T.cream, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: "1.05rem" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Elms+Sans:wght@700&family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;500;600&display=swap');
@@ -1590,6 +1588,32 @@ export default function ArtVault() {
                 <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Version</span> 1.0.0</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Description</span> Catalogue de collection d'art familial</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Technologie</span> React · Supabase · Vite</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Thème</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {themeGroups.map(g => (
+                  <div key={g.label}>
+                    <div style={{ color: T.dim2, fontSize: "0.72rem", marginBottom: 4 }}>{g.label}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {g.keys.map(k => {
+                        const active = themeName === k;
+                        return (
+                          <button key={k} onClick={() => setThemeName(k)}
+                            style={{
+                              background: active ? T.accent : T.s3, border: `1px solid ${active ? T.accent : T.border}`,
+                              color: active ? T.bg : T.dim, borderRadius: 4, padding: "4px 10px", fontSize: "0.78rem",
+                              cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                            }}>
+                            {themeLabels[k]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

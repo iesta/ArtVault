@@ -1,20 +1,10 @@
 import { useState } from "react";
 import { supabase } from "./supabase";
 import { Mail, Lock, Loader } from "lucide-react";
-
-const T = {
-  bg: "#122c44",
-  s1: "#336699",
-  s3: "#4d7fa6",
-  border: "#4a6a80",
-  accent: "#3fc1c9",
-  cream: "#f0e6d2",
-  dim: "#a8b8c0",
-  red: "#b03535",
-  cyan: "#3fc1c9",
-};
+import { useTheme } from "./themes";
 
 export default function Auth() {
+  const T = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

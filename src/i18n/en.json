@@ -109,6 +109,9 @@
   "form.save_create": "Save",
   "form.save_error": "Artist and title are required.",
   "form.err_prefix": "Error: ",
+
+  "crop.confirm": "Crop",
+  "crop.cancel": "Cancel",
   "form.err_upload": "Error while deleting: ",
   "form.err_export": "Export error: ",
   "form.err_export_pdf": "PDF export error: ",

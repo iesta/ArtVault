@@ -109,6 +109,9 @@
   "form.save_create": "Enregistrer",
   "form.save_error": "L'artiste et le titre sont obligatoires.",
   "form.err_prefix": "Erreur: ",
+
+  "crop.confirm": "Rogner",
+  "crop.cancel": "Annuler",
   "form.err_upload": "Erreur lors de la suppression: ",
   "form.err_export": "Erreur d'export : ",
   "form.err_export_pdf": "Erreur d'export PDF : ",

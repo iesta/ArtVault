@@ -3,7 +3,7 @@ import {
   Plus, ArrowLeft, Edit2, Trash2, LayoutGrid, List, Search,
   CheckCircle2, Circle, Download, X, ChevronLeft, ChevronRight,
   Image as ImageIcon, FileText, Shield, ShieldOff, SortAsc, SortDesc,
-  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu, Settings, Smartphone, Info, FileSpreadsheet, Share2, Copy, Check, Link as LinkIcon
+  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu, Settings, Smartphone, Info, FileSpreadsheet, Share2, Copy, Check, Link as LinkIcon, Crop as CropIcon
 } from "lucide-react";
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
@@ -263,6 +263,24 @@ export default function ArtVault() {
 
   // Fullscreen photo
   const [fullscreenPhoto, setFullscreenPhoto] = useState(null);
+  const [cropMode, setCropMode] = useState(false);
+  const [cropRect, setCropRect] = useState(null);
+  const dragRef = useRef(false);
+  const cropRectRef = useRef(null);
+  const cropActionRef = useRef(null); // "create" | "move" | null
+  const cropOffRef = useRef({ dx: 0, dy: 0 });
+  const cropImgRef = useRef(null);
+
+  // returns natural coords from a mouse event on the img element
+  const imgCoords = useCallback(e => {
+    const img = cropImgRef.current;
+    if (!img) return { x: 0, y: 0 };
+    const r = img.getBoundingClientRect();
+    const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+    const cx = r.left + (r.width - img.naturalWidth * s) / 2;
+    const cy = r.top + (r.height - img.naturalHeight * s) / 2;
+    return { x: (e.clientX - cx) / s, y: (e.clientY - cy) / s, s, cx, cy };
+  }, []);
 
   // Thumbnails {id: url}
   const [thumbs, setThumbs] = useState({});
@@ -480,17 +498,98 @@ export default function ArtVault() {
     if (target) openDetail(target);
   };
 
+  const confirmCrop = async () => {
+    const cr = cropRectRef.current;
+    if (!cr || cr.w < 10 || cr.h < 10) return;
+    try {
+      const resp = await fetch(fullscreenPhoto);
+      const blob = await resp.blob();
+      const img = new Image();
+      img.src = URL.createObjectURL(blob);
+      await img.decode();
+      const cv = document.createElement("canvas");
+      cv.width = Math.round(cr.w);
+      cv.height = Math.round(cr.h);
+      const ctx = cv.getContext("2d");
+      ctx.drawImage(img, cr.x, cr.y, cr.w, cr.h, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(img.src);
+      const dataUrl = cv.toDataURL("image/jpeg", 0.78);
+      const photo = dPhotos[pIdx];
+      if (!photo) return;
+      const ext = photo.name.match(/\.\w+$/)?.[0] || ".jpg";
+      const newPath = `photos/${session.user.id}/${detWork.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+      const file = dataURLToFile(dataUrl, photo.name);
+      const { error: upErr } = await supabase.storage.from("artwork-photos").upload(newPath, file, { upsert: true });
+      if (upErr) throw upErr;
+      await supabase.storage.from("artwork-photos").remove([photo.path]);
+      const newPhotos = detWork.photos.map((p, i) => i === pIdx ? { ...p, path: newPath } : p);
+      const { error: dbErr } = await supabase.from("artworks").update({ photos: newPhotos }).eq("id", detWork.id);
+      if (dbErr) throw dbErr;
+      const newUrl = photoURL(newPath);
+      setDPhotos(prev => prev.map((p, i) => i === pIdx ? { ...p, path: newPath, url: newUrl } : p));
+      setDetWork(prev => ({ ...prev, photos: newPhotos }));
+      setWorks(prev => prev.map(w => w.id === detWork.id ? { ...w, photos: newPhotos } : w));
+      setFullscreenPhoto(newUrl);
+      setCropMode(false);
+      setCropRect(null);
+      cropRectRef.current = null; dragRef.current = false; cropActionRef.current = null;
+    } catch (err) {
+      console.error("Crop error:", err);
+    }
+  };
+
+  // ── Crop drag (document-level) ─────────────────────────────────
+  useEffect(() => {
+    if (!cropMode) return;
+    const onMove = e => {
+      if (!dragRef.current || !cropRectRef.current) return;
+      const img = cropImgRef.current;
+      if (!img) return;
+      const c = imgCoords(e);
+      if (cropActionRef.current === "move") {
+        setCropRect(prev => {
+          const next = { x: c.x - cropOffRef.current.dx, y: c.y - cropOffRef.current.dy, w: prev.w, h: prev.h };
+          cropRectRef.current = next;
+          return next;
+        });
+      } else {
+        setCropRect(prev => {
+          const next = { ...prev, w: c.x - prev.x, h: c.y - prev.y };
+          cropRectRef.current = next;
+          return next;
+        });
+      }
+    };
+    const onUp = e => {
+      if (!dragRef.current || !cropRectRef.current) { dragRef.current = false; return; }
+      dragRef.current = false;
+      cropActionRef.current = null;
+      const cr = cropRectRef.current;
+      let { x, y, w, h } = cr;
+      if (Math.abs(w) < 10 || Math.abs(h) < 10) { setCropRect(null); cropRectRef.current = null; return; }
+      if (w < 0) { x += w; w = -w; }
+      if (h < 0) { y += h; h = -h; }
+      const next = { x, y, w, h };
+      cropRectRef.current = next;
+      setCropRect(next);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+  }, [cropMode, imgCoords]);
+
   // ── ESC key ──────────────────────────────────────────────────
   useEffect(() => {
     const handler = e => {
       if (e.key === "Escape") {
-        if (fullscreenPhoto) setFullscreenPhoto(null);
+        if (cropMode) { setCropMode(false); setCropRect(null); cropRectRef.current = null; dragRef.current = false; cropActionRef.current = null; }
+        else if (fullscreenPhoto) setFullscreenPhoto(null);
         else if (screen === "detail") goGallery();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [screen, fullscreenPhoto]);
+  }, [screen, fullscreenPhoto, cropMode]);
 
   const openAdd = () => {
     setEditWork(null); setForm(BLANK); setFormTab("info");
@@ -1150,6 +1249,9 @@ export default function ArtVault() {
                 <button key={f} onClick={() => f === "tags" ? setShowTagFilter(s => !s) : toggleSort(f)} className="ghost-btn"
                   style={{ background: "none", border: `1px solid ${f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.border}`, color: f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.dim, borderRadius: 3, padding: "5px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, transition: "all 0.18s" }}>
                   {t(k)}
+                  {f === "tags" && selectedTags.length > 0 && (
+                    <span style={{ background: T.accent, color: T.bg, fontSize: "0.65rem", fontWeight: 700, borderRadius: 8, padding: "1px 6px", lineHeight: "1.4" }}>{selectedTags.length}</span>
+                  )}
                   {f !== "tags" && sortField === f && (sortDir === "asc" ? <SortAsc size={12} /> : <SortDesc size={12} />)}
                 </button>
               ))}
@@ -1230,7 +1332,7 @@ export default function ArtVault() {
                   <div style={{ aspectRatio: "4/3", background: T.s3, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                     {thumbs[w.id]
                       ? <img src={thumbs[w.id]} alt={w.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : <ImageIcon size={36} color={T.border} />
+                      : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: T.s3, color: T.border, fontSize: 28, fontWeight: 600, fontFamily: "system-ui, sans-serif", letterSpacing: 4 }}>AV</div>
                     }
                   </div>
                   <div style={{ padding: "14px 15px" }}>
@@ -1294,7 +1396,7 @@ export default function ArtVault() {
                         <div style={{ width: 40, height: 40, borderRadius: 4, overflow: "hidden", background: T.s3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           {thumbs[w.id]
                             ? <img src={thumbs[w.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            : <ImageIcon size={16} color={T.border} />
+                            : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: T.s3, color: T.border, fontSize: 15, fontWeight: 600, fontFamily: "system-ui, sans-serif", letterSpacing: 2 }}>AV</div>
                           }
                         </div>
                       </td>
@@ -1595,7 +1697,7 @@ export default function ArtVault() {
             </div>
           </div>
 
-          {dPhotos.length > 0 && (
+          {dPhotos.length > 0 ? (
             <div style={{ marginBottom: 28 }}>
               <div style={{ background: T.s2, borderRadius: 8, overflow: "hidden", maxHeight: 500, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                 <img src={dPhotos[pIdx].url} alt="" onClick={() => setFullscreenPhoto(dPhotos[pIdx].url)} style={{ maxWidth: "100%", maxHeight: 500, objectFit: "contain", cursor: "pointer" }} />
@@ -1628,6 +1730,10 @@ export default function ArtVault() {
                   ))}
                 </div>
               )}
+            </div>
+          ) : (
+            <div style={{ marginBottom: 28, background: T.s2, borderRadius: 8, height: 260, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ color: T.border, fontSize: 40, fontWeight: 600, fontFamily: "system-ui, sans-serif", letterSpacing: 6, opacity: 0.3 }}>AV</div>
             </div>
           )}
 
@@ -1730,14 +1836,75 @@ export default function ArtVault() {
 
       {/* ── FULLSCREEN PHOTO ─────────────────────────────────── */}
       {fullscreenPhoto && (
-        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={() => setFullscreenPhoto(null)}>
-          <button onClick={() => setFullscreenPhoto(null)}
-            style={{ position: "absolute", top: 14, right: 14, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 501 }}>
-            <X size={20} />
-          </button>
-          <img src={fullscreenPhoto} alt="" onClick={e => e.stopPropagation()}
-            style={{ maxWidth: "95vw", maxHeight: "95vh", objectFit: "contain" }} />
+        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}
+          onClick={() => { if (!cropMode) setFullscreenPhoto(null); }}>
+          {/* Top bar */}
+          <div style={{ position: "absolute", top: 14, right: 14, display: "flex", gap: 8, zIndex: 501 }}>
+            {!cropMode && (
+              <button onClick={e => { e.stopPropagation(); setCropMode(true); setCropRect(null); cropRectRef.current = null; }}
+                style={{ background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <CropIcon size={18} />
+              </button>
+            )}
+            <button onClick={() => { setFullscreenPhoto(null); setCropMode(false); setCropRect(null); cropRectRef.current = null; dragRef.current = false; cropActionRef.current = null; }}
+              style={{ background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <X size={20} />
+            </button>
+          </div>
+          {/* Crop confirm bar */}
+          {cropMode && (
+            <div style={{ position: "absolute", bottom: 30, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 12, zIndex: 501 }}>
+              <button onClick={e => { e.stopPropagation(); confirmCrop(); }}
+                style={{ background: "#3fc1c9", border: "none", color: "#122c44", padding: "8px 20px", borderRadius: 4, cursor: "pointer", fontFamily: "inherit", fontSize: "0.9rem", fontWeight: 600, opacity: cropRect && cropRect.w >= 10 ? 1 : 0.5 }}>
+                ✓ {t("crop.confirm")}
+              </button>
+              <button onClick={e => { e.stopPropagation(); setCropMode(false); setCropRect(null); cropRectRef.current = null; dragRef.current = false; cropActionRef.current = null; }}
+                style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 4, cursor: "pointer", fontFamily: "inherit", fontSize: "0.9rem" }}>
+                ✕ {t("crop.cancel")}
+              </button>
+            </div>
+          )}
+          {/* Image + crop overlay */}
+          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", maxWidth: "95vw", maxHeight: "95vh" }}>
+            <img ref={cropImgRef} src={fullscreenPhoto} alt="" crossOrigin="anonymous" onClick={e => e.stopPropagation()}
+              style={{ display: "block", maxWidth: "95vw", maxHeight: "95vh", objectFit: "contain", cursor: cropMode ? (cropRect ? "move" : "crosshair") : "default", userSelect: "none", WebkitUserSelect: "none" }}
+              onMouseDown={cropMode ? (e => {
+                e.preventDefault();
+                const c = imgCoords(e);
+                const cr = cropRectRef.current;
+                if (cr && c.x >= cr.x && c.x <= cr.x + cr.w && c.y >= cr.y && c.y <= cr.y + cr.h) {
+                  // click inside existing rect → move mode
+                  cropActionRef.current = "move";
+                  cropOffRef.current = { dx: c.x - cr.x, dy: c.y - cr.y };
+                } else {
+                  // click outside → create new selection
+                  cropActionRef.current = "create";
+                  const start = { x: c.x, y: c.y, w: 0, h: 0 };
+                  cropRectRef.current = start;
+                  setCropRect(start);
+                }
+                dragRef.current = true;
+              }) : undefined}
+            />
+            {cropMode && cropRect && (cropRect.w !== 0 || dragRef.current) && (() => {
+              const img = cropImgRef.current;
+              if (!img) return null;
+              const r = img.getBoundingClientRect();
+              const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+              const left = (r.width - img.naturalWidth * s) / 2;
+              const top = (r.height - img.naturalHeight * s) / 2;
+              const l = Math.min(cropRect.x, cropRect.x + cropRect.w) * s + left;
+              const t = Math.min(cropRect.y, cropRect.y + cropRect.h) * s + top;
+              const w = Math.abs(cropRect.w) * s;
+              const h = Math.abs(cropRect.h) * s;
+              if (w < 1 && h < 1) return (
+                <div style={{ position: "absolute", left: l - 3, top: t - 3, width: 6, height: 6, borderRadius: "50%", background: "#fff", pointerEvents: "none" }} />
+              );
+              return (
+                <div style={{ position: "absolute", border: "2px dashed #fff", background: "rgba(255,255,255,0.08)", pointerEvents: "none", boxSizing: "border-box", left: l, top: t, width: w, height: h }} />
+              );
+            })()}
+          </div>
         </div>
       )}
 

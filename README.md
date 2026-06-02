@@ -58,6 +58,7 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_your_key
 | **URL routing** | Each artwork has a direct URL (`/item/{id}`), browser back/forward works |
 | **Prev / Next** | Navigate between artworks in the detail view with `<` `>` arrows (follows current sort/filter) |
 | **Photos** | Up to 5 per artwork, auto-compressed (1400px JPEG, 78% quality), camera capture (mobile + desktop webcam) |
+| **Crop tool** | Fullscreen photo viewer with mouse-drag selection, repositionable rectangle, crop to JPEG |
 | **Documents** | Upload expertise PDFs and certificates of authenticity (max 5 MB each) |
 | **Auth** | Email/password login & signup, each user sees only their own collection |
 | **i18n** | French & English, switchable via Preferences panel |
@@ -87,7 +88,8 @@ artvault/
 ├── public/
 │   ├── icon.svg
 │   ├── icon-192x192.png
-│   └── icon-512x512.png
+│   ├── icon-512x512.png
+│   └── no-image.svg
 └── src/
     ├── main.jsx                 # React entry point
     ├── App.jsx                  # Main app component (all UI, state, keyboard shortcuts)
@@ -98,7 +100,7 @@ artvault/
     ├── themes.js                # 16 theme definitions, ThemeContext, useTheme
     └── i18n/
         ├── index.js             # I18nContext, useI18n, formatCurrency, lang/currency persistence
-        ├── fr.json              # French strings (source of truth, ~150 keys)
+        ├── fr.json              # French strings (source of truth, ~160 keys)
         └── en.json              # English translations
 ```
 

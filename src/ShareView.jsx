@@ -1,6 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, X, ImageIcon } from "lucide-react";
 import { photoURL } from "./supabase";
+import { formatCurrency, loadCurrency, loadLang } from "./i18n";
+import en from "./i18n/en.json";
+import fr from "./i18n/fr.json";
+const allMsgs = { fr, en };
+const _lang = loadLang();
+const _currency = loadCurrency();
+const _msgs = allMsgs[_lang] || fr;
+const _t = (key, vars) => {
+  let v = _msgs[key] || fr[key] || key;
+  if (vars && typeof v === "string") {
+    for (const [k, val] of Object.entries(vars)) v = v.replace(`{${k}}`, val);
+  }
+  return v;
+};
+const _fmt = v => formatCurrency(v, _currency);
 
 const T = {
   bg: "#f8f9fa",
@@ -44,8 +59,8 @@ export default function ShareView({ data }) {
     return (
       <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: T.dim, fontFamily: "system-ui, sans-serif" }}>
         <div style={{ fontSize: 48, opacity: 0.3 }}>🔗</div>
-        <div style={{ fontSize: "1.1rem" }}>Lien invalide ou expiré</div>
-        <div style={{ fontSize: "0.85rem" }}>Vérifiez le lien reçu et réessayez.</div>
+        <div style={{ fontSize: "1.1rem" }}>{_t("share_view.invalid_title")}</div>
+        <div style={{ fontSize: "0.85rem" }}>{_t("share_view.invalid_desc")}</div>
       </div>
     );
   }
@@ -53,7 +68,7 @@ export default function ShareView({ data }) {
   if (!works.length) {
     return (
       <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: T.dim, fontFamily: "system-ui, sans-serif" }}>
-        <div style={{ fontSize: "1.1rem" }}>Collection vide</div>
+        <div style={{ fontSize: "1.1rem" }}>{_t("share_view.empty")}</div>
       </div>
     );
   }
@@ -66,9 +81,9 @@ export default function ShareView({ data }) {
           <div style={{ width: 26, height: 26, background: T.accent, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ color: "#fff", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.05em" }}>AV</span>
           </div>
-          <span style={{ fontSize: "1.1rem", fontWeight: 600, color: T.text }}>Collection ArtVault</span>
+          <span style={{ fontSize: "1.1rem", fontWeight: 600, color: T.text }}>{_t("share_view.header")}</span>
           <span style={{ color: T.dim, fontSize: "0.85rem", marginLeft: "auto" }}>
-            {works.length} œuvre{works.length > 1 ? "s" : ""}
+            {works.length} {_t(works.length > 1 ? "nav.works_plural" : "nav.works")}
           </span>
         </div>
       </div>
@@ -87,7 +102,7 @@ export default function ShareView({ data }) {
                   : <ImageIcon size={24} color={T.dim} style={{ opacity: 0.4 }} />}
               </div>
               <div style={{ padding: "10px 12px" }}>
-                <div style={{ fontSize: "0.85rem", fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.title || "Sans titre"}</div>
+                <div style={{ fontSize: "0.85rem", fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.title || _t("share_view.title_fallback")}</div>
                 <div style={{ fontSize: "0.8rem", color: T.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.artist}</div>
                 {w.date_work && <div style={{ fontSize: "0.75rem", color: T.dim, marginTop: 2, opacity: 0.7 }}>{w.date_work}</div>}
               </div>
@@ -98,7 +113,7 @@ export default function ShareView({ data }) {
 
       {/* Footer */}
       <div style={{ borderTop: `1px solid ${T.border}`, padding: "16px 20px", textAlign: "center", color: T.dim, fontSize: "0.78rem", letterSpacing: "0.04em" }}>
-        Propulsé par ArtVault
+        {_t("share_view.powered_by")}
       </div>
 
       {/* Lightbox */}
@@ -138,20 +153,21 @@ export default function ShareView({ data }) {
 
           {/* Info panel — bottom right */}
           <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 10, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)", borderRadius: 8, padding: "16px 18px", maxWidth: 260, color: "#fff", display: "flex", flexDirection: "column", gap: 5 }}>
-            <div style={{ fontSize: "0.95rem", fontWeight: 600, lineHeight: 1.3 }}>{works[sel].title || "Sans titre"}</div>
+            <div style={{ fontSize: "0.95rem", fontWeight: 600, lineHeight: 1.3 }}>{works[sel].title || _t("share_view.title_fallback")}</div>
             <div style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.65)", fontStyle: "italic" }}>{works[sel].artist}</div>
             <div style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.5)", display: "flex", flexWrap: "wrap", gapX: 12, gapY: 2 }}>
               {works[sel].date_work && <span>📅 {works[sel].date_work}</span>}
               {works[sel].technique && <span>🎨 {works[sel].technique}</span>}
+              {works[sel].edition && <span>🔢 {_t("share_view.edition")} {works[sel].edition}</span>}
               {(works[sel].width || works[sel].height) && (
                 <span>📏 {[works[sel].width, works[sel].height, works[sel].depth].filter(Boolean).join(" × ")}{works[sel].dimension_unit ? ` ${works[sel].dimension_unit}` : ""}</span>
               )}
-              {works[sel].is_insured && <span>🛡️ Assurée</span>}
+              {works[sel].is_insured && <span>🛡️ {_t("share_view.insured")}</span>}
             </div>
             {showValues && (works[sel].value_current || works[sel].value_purchase) && (
               <div style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.5)", display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
-                {works[sel].value_purchase && <span>Achat : {new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(+works[sel].value_purchase)}</span>}
-                {works[sel].value_current && <span>Estimation : {new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(+works[sel].value_current)}</span>}
+                {works[sel].value_purchase && <span>{_t("share_view.purchase")} {_fmt(works[sel].value_purchase)}</span>}
+                {works[sel].value_current && <span>{_t("share_view.estimate")} {_fmt(works[sel].value_current)}</span>}
               </div>
             )}
             {works[sel].notes && (

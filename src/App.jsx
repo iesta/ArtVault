@@ -49,18 +49,14 @@ async function readPDF(file) {
   });
 }
 
-const eur = v => v !== "" && v !== null && v !== undefined
-  ? new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(+v)
-  : "—";
-
-const fmtDate = d => {
+const fmtDate = (d, locale = "fr-BE") => {
   if (!d) return "—";
-  try { return new Date(d + "T12:00:00").toLocaleDateString("fr-BE"); } catch { return d; }
+  try { return new Date(d + "T12:00:00").toLocaleDateString(locale); } catch { return d; }
 };
 
 // ── Default form ──────────────────────────────────────────────
 const BLANK = {
-  artist: "", title: "", technique: "", dateWork: "",
+  artist: "", title: "", technique: "", edition: "", dateWork: "",
   datePurchase: "", locationPurchase: "",
   valuePurchase: "", valueCurrent: "",
   locationStorage: "", width: "", height: "", depth: "",
@@ -72,6 +68,7 @@ const formToDB = f => ({
   artist: f.artist,
   title: f.title,
   technique: f.technique,
+  edition: f.edition,
   date_work: f.dateWork,
   date_purchase: f.datePurchase,
   location_purchase: f.locationPurchase,
@@ -90,6 +87,7 @@ const dbToForm = d => ({
   artist: d.artist || "",
   title: d.title || "",
   technique: d.technique || "",
+  edition: d.edition || "",
   dateWork: d.date_work || "",
   datePurchase: d.date_purchase || "",
   locationPurchase: d.location_purchase || "",
@@ -121,6 +119,7 @@ function dataURLToFile(dataURL, filename) {
 
 // ── Theme (blue-gray) ─────────────────────────────────────────
 import { themes, ThemeContext, useTheme, loadTheme, saveTheme, themeGroups, themeLabels } from "./themes";
+import { I18nContext, formatCurrency, loadLang, saveLang, loadCurrency, saveCurrency, DEFAULT_LANG, DEFAULT_CURRENCY } from "./i18n";
 
 // ── Small reusable components ─────────────────────────────────
 
@@ -213,6 +212,9 @@ export default function ArtVault() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [themeName, setThemeName] = useState(loadTheme);
+  const [lang, setLang] = useState(loadLang);
+  const [currency, setCurrency] = useState(loadCurrency);
+  const [msgs, setMsgs] = useState(null);
   const T = themes[themeName];
 
   const [works,    setWorks]    = useState([]);
@@ -317,8 +319,38 @@ export default function ArtVault() {
     setIosInstallModal(true);
   };
 
-  // ── Persist theme ───────────────────────────────────────────────
+  // ── Load messages ───────────────────────────────────────────
+  useEffect(() => {
+    import(`./i18n/${lang}.json`).then(m => setMsgs(m.default));
+  }, [lang]);
+
+  const t = useCallback((key, vars) => {
+    if (!msgs) return key;
+    let v = msgs[key];
+    if (v === undefined && frMsgs.current) { v = frMsgs.current[key]; }
+    if (v === undefined) v = key;
+    if (vars && typeof v === "string") {
+      for (const [k, val] of Object.entries(vars)) v = v.replace(`{${k}}`, val);
+    }
+    return v;
+  }, [msgs]);
+
+  const frMsgs = useRef(null);
+  useEffect(() => {
+    import("./i18n/fr.json").then(m => { frMsgs.current = m.default; });
+  }, []);
+
+  const fmt = useCallback((v) => {
+    if (v === "" || v === null || v === undefined) return "—";
+    return formatCurrency(v, currency);
+  }, [currency]);
+
+  const fmtLocale = useCallback((d) => fmtDate(d, currency === "USD" ? "en-US" : currency === "CNY" ? "zh-CN" : "fr-BE"), [currency]);
+
+  // ── Persist theme / lang / currency ─────────────────────────
   useEffect(() => { saveTheme(themeName); }, [themeName]);
+  useEffect(() => { saveLang(lang); }, [lang]);
+  useEffect(() => { saveCurrency(currency); }, [currency]);
 
   // ── Share route detection ───────────────────────────────────────
   useEffect(() => {
@@ -591,7 +623,7 @@ export default function ArtVault() {
       openDetail(refreshed);
     } catch (err) {
       setSaving(false);
-      setFileErr("Erreur: " + err.message);
+      setFileErr(t("form.err_prefix") + err.message);
     }
   };
 
@@ -665,7 +697,7 @@ export default function ArtVault() {
       setScreen("gallery");
       setDetWork(null);
     } catch (err) {
-      setFileErr("Erreur lors de la suppression: " + err.message);
+      setFileErr(t("form.err_upload") + err.message);
     }
   };
 
@@ -732,7 +764,7 @@ export default function ArtVault() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      setFileErr("Erreur d'export : " + err.message);
+      setFileErr(t("form.err_export") + err.message);
     }
     setExporting(false);
   };
@@ -745,7 +777,7 @@ export default function ArtVault() {
       const { exportToPDF } = await import("./exportPDF.js");
       await exportToPDF(works);
     } catch (err) {
-      setFileErr("Erreur d'export PDF : " + err.message);
+      setFileErr(t("form.err_export_pdf") + err.message);
     }
     setPdfLoading(false);
   };
@@ -756,33 +788,35 @@ export default function ArtVault() {
     setXlsLoading(true);
     try {
       const XLSX = await import("xlsx");
+      const xlsLocale = currency === "USD" ? "en-US" : currency === "CNY" ? "zh-CN" : "fr-FR";
       const rows = works.map(w => ({
-        Artiste: w.artist,
-        Titre: w.title,
-        Technique: w.technique || "",
-        Date: w.date_work || "",
-        "Lieu d'entreposage": w.location_storage || "",
-        Largeur: w.width || "",
-        Hauteur: w.height || "",
-        Profondeur: w.depth || "",
-        Unité: w.dimension_unit || "cm",
-        "Date d'achat": w.date_purchase || "",
-        "Lieu d'achat": w.location_purchase || "",
-        "Valeur d'achat (€)": w.value_purchase || "",
-        "Valeur actuelle (€)": w.value_current || "",
-        Assurée: w.is_insured ? "Oui" : "Non",
-        Notes: w.notes || "",
-        Créée: w.created_at ? new Date(w.created_at).toLocaleDateString("fr-FR") : "",
-        Photos: w.photos?.length || 0,
+        [t("xls.col_artist")]: w.artist,
+        [t("xls.col_title")]: w.title,
+        [t("xls.col_technique")]: w.technique || "",
+        [t("xls.col_edition")]: w.edition || "",
+        [t("xls.col_date")]: w.date_work || "",
+        [t("xls.col_location")]: w.location_storage || "",
+        [t("xls.col_width")]: w.width || "",
+        [t("xls.col_height")]: w.height || "",
+        [t("xls.col_depth")]: w.depth || "",
+        [t("xls.col_unit")]: w.dimension_unit || "cm",
+        [t("xls.col_purchase_date")]: w.date_purchase || "",
+        [t("xls.col_purchase_loc")]: w.location_purchase || "",
+        [t("xls.col_purchase_value")]: w.value_purchase || "",
+        [t("xls.col_current_value")]: w.value_current || "",
+        [t("xls.col_insured")]: w.is_insured ? t("xls.yes") : t("xls.no"),
+        [t("xls.col_notes")]: w.notes || "",
+        [t("xls.col_created")]: w.created_at ? new Date(w.created_at).toLocaleDateString(xlsLocale) : "",
+        [t("xls.col_photos")]: w.photos?.length || 0,
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Collection");
+      XLSX.utils.book_append_sheet(wb, ws, t("xls.sheet_name"));
       const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: 22 }));
       ws["!cols"] = colWidths;
       XLSX.writeFile(wb, `ArtVault_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err) {
-      setFileErr("Erreur d'export XLS : " + err.message);
+      setFileErr(t("form.err_export_xls") + err.message);
     }
     setXlsLoading(false);
   };
@@ -809,6 +843,8 @@ export default function ArtVault() {
     stopCamera();
     setFPhotos(p => [...p, { data, name: `camera_${Date.now()}.jpg`, _temp: true }]);
   };
+
+  const removeFormPhoto = i => setFPhotos(p => p.filter((_, j) => j !== i));
 
   const addPhoto = e => {
     const file = e.target.files?.[0];
@@ -842,7 +878,7 @@ export default function ArtVault() {
     }
     if (!search) return true;
     const q = search.toLowerCase();
-    return [w.title, w.artist, w.technique, w.location_storage, w.location_purchase]
+    return [w.title, w.artist, w.technique, w.edition, w.location_storage, w.location_purchase]
       .concat(w.tags?.map(t => " " + t) || [])
       .some(f => f?.toLowerCase().includes(q));
   }).sort((a, b) => {
@@ -861,7 +897,13 @@ export default function ArtVault() {
   const insuredCount = works.filter(w => w.is_insured).length;
 
   // ── Auth guard ─────────────────────────────────────────────────
-  const wrap = children => <ThemeContext.Provider value={T}>{children}</ThemeContext.Provider>;
+  const wrap = children => (
+    <ThemeContext.Provider value={T}>
+      <I18nContext.Provider value={{ t, lang, setLang, currency, setCurrency, fmt, fmtLocale, formatCurrency }}>
+        {children}
+      </I18nContext.Provider>
+    </ThemeContext.Provider>
+  );
 
   if (authLoading) {
     return wrap(
@@ -919,7 +961,7 @@ export default function ArtVault() {
           </div>
           {screen === "gallery" && (
             <span style={{ color: T.cream, fontSize: "0.82rem", marginLeft: 2, borderLeft: `1px solid ${T.border}`, paddingLeft: 12 }}>
-              {works.length} {works.length === 1 ? "œuvre" : "œuvres"} · {eur(totalCurrent)}
+              {works.length} {t(works.length === 1 ? "nav.works" : "nav.works_plural")} · {fmt(totalCurrent)}
             </span>
           )}
           {screen === "detail" && detWork && (
@@ -929,7 +971,7 @@ export default function ArtVault() {
           )}
           {screen === "form" && (
             <span style={{ color: T.dim, fontSize: "0.9rem" }}>
-              {editWork ? "Modifier l'œuvre" : "Nouvelle œuvre"}
+              {t(editWork ? "nav.edit_work" : "nav.new_work")}
             </span>
           )}
         </div>
@@ -950,8 +992,8 @@ export default function ArtVault() {
           )}
           {screen === "detail" && (
             <>
-              <Btn variant="outline" onClick={() => openEdit(detWork)} sx={{ padding: "6px 14px" }}>
-                <Edit2 size={14} /> Modifier
+              <Btn variant="outline" onClick={() => openEdit(detWork)} sx={{ padding: "6px 14px" }} className="desk-only">
+                <Edit2 size={14} /> {t("menu.edit")}
               </Btn>
               <button className="ghost-btn" onClick={() => setDelModal(true)}
                 style={{ background: "none", border: "none", color: T.red, cursor: "pointer", padding: 6, display: "flex", transition: "opacity 0.2s" }}>
@@ -961,12 +1003,12 @@ export default function ArtVault() {
           )}
           {screen === "form" && (
             <Btn variant="primary" onClick={handleSave} disabled={saving} sx={{ padding: "8px 20px" }}>
-              <Save size={14} /> {saving ? "Enregistrement…" : editWork ? "Mettre à jour" : "Enregistrer"}
+              <Save size={14} /> {saving ? t("form.save_saving") : t(editWork ? "form.save_update" : "form.save_create")}
             </Btn>
           )}
 
           {/* ── HAMBURGER ───────────────────────────────────── */}
-          <div style={{ position: "relative" }}>
+          {screen !== "form" && <div style={{ position: "relative" }}>
             <button onClick={() => setMenuOpen(o => !o)}
               style={{ background: "none", border: "none", color: T.cream, cursor: "pointer", padding: 6, display: "flex" }}>
               <Menu size={22} />
@@ -974,7 +1016,7 @@ export default function ArtVault() {
 
             {menuOpen && (
               <>
-                <div className="mob-only" onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 98 }} />
+                <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 98 }} />
                 <div style={{
                   position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 99,
                   background: T.s1, border: `1px solid ${T.border}`, borderRadius: 6,
@@ -986,33 +1028,33 @@ export default function ArtVault() {
                     <>
                       <button className="ghost-btn menu-item" onClick={() => { handleExportPDF(); setMenuOpen(false); }} disabled={pdfLoading || works.length === 0}
                         style={{ background: "none", border: "none", color: T.dim, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}>
-                        <FileText size={16} /> Export PDF
+                        <FileText size={16} /> {t("menu.export_pdf")}
                       </button>
                       <button className="ghost-btn menu-item" onClick={() => { handleExport(); setMenuOpen(false); }} disabled={exporting || works.length === 0}
                         style={{ background: "none", border: "none", color: T.dim, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: exporting || works.length === 0 ? 0.5 : 1 }}>
-                        <Archive size={16} /> Export ZIP
+                        <Archive size={16} /> {t("menu.export_zip")}
                       </button>
                       <button className="ghost-btn menu-item" onClick={() => { handleExportXLS(); setMenuOpen(false); }} disabled={xlsLoading || works.length === 0}
                         style={{ background: "none", border: "none", color: T.dim, cursor: xlsLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: xlsLoading || works.length === 0 ? 0.5 : 1 }}>
-                        <FileSpreadsheet size={16} /> Export XLS
+                        <FileSpreadsheet size={16} /> {t("menu.export_xls")}
                       </button>
                       <div style={{ height: 1, background: T.border, margin: "3px 8px" }} />
                       <button className="ghost-btn menu-item" onClick={() => { if (deferredPrompt) { handleInstall(); } else { handleInstallIOS(); } setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
-                        <Download size={16} /> Installer l'app
+                        <Download size={16} /> {t("menu.install_app")}
                       </button>
                       <button className="ghost-btn menu-item" onClick={() => { setShareDialog(true); setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
-                        <Share2 size={16} /> Partager
+                        <Share2 size={16} /> {t("menu.share")}
                       </button>
                       <button className="ghost-btn menu-item" onClick={() => { setPrefPanel(true); setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
-                        <Settings size={16} /> Préférences
+                        <Settings size={16} /> {t("menu.preferences")}
                       </button>
                       <div style={{ height: 1, background: T.border, margin: "3px 8px" }} />
                       <button className="ghost-btn menu-item" onClick={() => { handleLogout(); setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.red, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
-                        <LogOut size={16} /> Déconnexion
+                        <LogOut size={16} /> {t("menu.logout")}
                       </button>
                     </>
                   )}
@@ -1020,18 +1062,18 @@ export default function ArtVault() {
                     <>
                       <button className="ghost-btn menu-item" onClick={() => { openEdit(detWork); setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
-                        <Edit2 size={16} /> Modifier
+                        <Edit2 size={16} /> {t("menu.edit")}
                       </button>
                       <button className="ghost-btn menu-item" onClick={() => { setDelModal(true); setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.red, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
-                        <Trash2 size={16} /> Supprimer
+                        <Trash2 size={16} /> {t("menu.delete")}
                       </button>
                     </>
                   )}
                 </div>
               </>
             )}
-          </div>
+          </div>}
         </div>
       </nav>
 
@@ -1042,7 +1084,7 @@ export default function ArtVault() {
             <div style={{ flex: 1, minWidth: 160, maxWidth: 380, position: "relative", display: "flex", alignItems: "center" }}>
               <Search size={17} style={{ position: "absolute", left: 10, color: T.dim, pointerEvents: "none" }} />
               <input
-                placeholder="Rechercher…"
+                placeholder={t("search.placeholder")}
                 value={search} onChange={e => setSearch(e.target.value)}
                 style={{ width: "100%", background: "#1e3a5f", color: T.cream, border: `1px solid ${T.border}`, borderRadius: 4, padding: "7px 10px 7px 32px", fontSize: "0.9rem", fontFamily: "inherit", outline: "none" }}
               />
@@ -1053,17 +1095,17 @@ export default function ArtVault() {
               )}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {[["artist","Artiste"],["title","Titre"],["value_current","Valeur"],["location_storage","Lieu"],["is_insured","Assurée"],["tags","Tags"]].map(([f, l]) => (
+              {[["artist","sort.artist"],["title","sort.title"],["value_current","sort.value"],["location_storage","sort.location"],["is_insured","sort.insured"],["tags","sort.tags"]].map(([f, k]) => (
                 <button key={f} onClick={() => f === "tags" ? setShowTagFilter(s => !s) : toggleSort(f)} className="ghost-btn"
                   style={{ background: "none", border: `1px solid ${f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.border}`, color: f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.dim, borderRadius: 3, padding: "5px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, transition: "all 0.18s" }}>
-                  {l}
+                  {t(k)}
                   {f !== "tags" && sortField === f && (sortDir === "asc" ? <SortAsc size={12} /> : <SortDesc size={12} />)}
                 </button>
               ))}
             </div>
             {(exporting || pdfLoading || xlsLoading) && (
               <span style={{ color: T.accent, fontSize: "0.82rem", fontStyle: "italic" }}>
-                {pdfLoading ? "Génération du PDF…" : xlsLoading ? "Génération du XLS…" : "Export en cours…"}
+                {pdfLoading ? t("export_pdf.loading") : xlsLoading ? t("export_xls.loading") : t("export_zip.loading")}
               </span>
             )}
           </div>
@@ -1074,7 +1116,7 @@ export default function ArtVault() {
             return (
               <div style={{ padding: "0 20px 10px 20px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ color: T.dim, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-                  <Tag size={13} /> Tags :
+                  <Tag size={13} /> {t("tags_label")}
                 </span>
                 {allTags.map(t => {
                   const active = selectedTags.includes(t);
@@ -1088,7 +1130,7 @@ export default function ArtVault() {
                 {!!selectedTags.length && (
                   <button onClick={() => setSelectedTags([])}
                     style={{ background: "none", border: "none", color: T.dim, fontSize: "0.75rem", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", padding: 2, opacity: 0.6 }}>
-                    Effacer
+                    {t("tags_clear")}
                   </button>
                 )}
               </div>
@@ -1100,7 +1142,7 @@ export default function ArtVault() {
       {/* ── LOADING ──────────────────────────────────────────── */}
       {loading && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", paddingTop: 100, color: T.accent, fontStyle: "italic", letterSpacing: "0.1em" }}>
-          Chargement de la collection…
+          {t("loading_collection")}
         </div>
       )}
 
@@ -1110,14 +1152,14 @@ export default function ArtVault() {
           {works.length > 0 && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 24 }}>
               {[
-                { label: "Œuvres", value: works.length, icon: <ImageIcon size={16} /> },
-                { label: "Valeur totale", value: eur(totalCurrent), icon: <Euro size={16} /> },
-                { label: "Assurées", value: `${insuredCount} / ${works.length}`, icon: <Shield size={16} /> },
-                { label: "Artistes", value: new Set(works.map(w => w.artist).filter(Boolean)).size, icon: <Tag size={16} /> },
-              ].map(({ label, value, icon }) => (
-                <div key={label} style={{ background: T.s2, border: `1px solid ${label === "Valeur totale" ? T.cyan + "60" : T.border}`, borderLeft: `3px solid ${label === "Valeur totale" ? T.cyan : "transparent"}`, borderRadius: 6, padding: "12px 16px" }}>
+                { key: "stats.works", value: works.length, icon: <ImageIcon size={16} /> },
+                { key: "stats.total_value", value: fmt(totalCurrent), icon: <Euro size={16} /> },
+                { key: "stats.insured", value: `${insuredCount} / ${works.length}`, icon: <Shield size={16} /> },
+                { key: "stats.artists", value: new Set(works.map(w => w.artist).filter(Boolean)).size, icon: <Tag size={16} /> },
+              ].map(({ key, value, icon }) => (
+                <div key={key} style={{ background: T.s2, border: `1px solid ${key === "stats.total_value" ? T.cyan + "60" : T.border}`, borderLeft: `3px solid ${key === "stats.total_value" ? T.cyan : "transparent"}`, borderRadius: 6, padding: "12px 16px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.dim, fontSize: "0.78rem", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    {icon} {label}
+                    {icon} {t(key)}
                   </div>
                   <div style={{ fontSize: "1.15rem", color: T.cream }}>{value}</div>
                 </div>
@@ -1127,7 +1169,7 @@ export default function ArtVault() {
 
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", paddingTop: 80, color: T.dim, fontStyle: "italic", fontSize: "1.05rem" }}>
-              {works.length === 0 ? "La collection est vide. Ajoutez votre première œuvre ↓" : "Aucun résultat."}
+              {works.length === 0 ? t("gallery.empty") : t("gallery.no_results")}
             </div>
           ) : (
             <div className="resp-gallery" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18 }}>
@@ -1142,15 +1184,15 @@ export default function ArtVault() {
                   </div>
                   <div style={{ padding: "14px 15px" }}>
                     <div style={{ fontSize: "1.15rem", color: T.cream, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {w.title || "Sans titre"}
+                      {w.title || t("gallery.untitled")}
                     </div>
-                    <div style={{ color: T.dim, fontSize: "0.88rem", marginBottom: 8, fontStyle: "italic" }}>{w.artist || "Artiste inconnu"}</div>
+                    <div style={{ color: T.dim, fontSize: "0.88rem", marginBottom: 8, fontStyle: "italic" }}>{w.artist || t("gallery.unknown_artist")}</div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ color: T.accent, fontSize: "0.9rem" }}>
-                        {eur(w.value_current || w.value_purchase)}
+                        {fmt(w.value_current || w.value_purchase)}
                       </span>
                       <span style={{ color: w.is_insured ? T.green : T.dim2, fontSize: "0.78rem", display: "flex", alignItems: "center", gap: 3 }}>
-                        {w.is_insured ? <><CheckCircle2 size={12} /> Assurée</> : <><ShieldOff size={12} /></>}
+                        {w.is_insured ? <><CheckCircle2 size={12} /> {t("gallery.insured")}</> : <><ShieldOff size={12} /></>}
                       </span>
                     </div>
                     {w.location_storage && (
@@ -1171,7 +1213,7 @@ export default function ArtVault() {
         <div style={{ padding: "24px 20px", maxWidth: 1280, margin: "0 auto", overflowX: "auto" }}>
           {filtered.length === 0 ? (
             <div style={{ textAlign: "center", paddingTop: 80, color: T.dim, fontStyle: "italic" }}>
-              {works.length === 0 ? "La collection est vide." : "Aucun résultat."}
+              {works.length === 0 ? t("list_view.empty") : t("gallery.no_results")}
             </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
@@ -1179,15 +1221,15 @@ export default function ArtVault() {
                 <tr style={{ borderBottom: `1px solid ${T.accent}40` }}>
                   <th style={{ width: 48, padding: "10px 12px 10px 4px" }}></th>
                   {[
-                    ["artist","Artiste"], ["title","Titre"], ["technique","Technique"],
-                    ["date_work","Date"], ["location_storage","Lieu"],
-                    ["value_purchase","Achat"], ["value_current","Valeur act."], ["is_insured","Ass."]
-                  ].map(([f, l]) => (
+                    ["artist","xls.col_artist"], ["title","xls.col_title"], ["technique","table_header.technique"],
+                    ["edition","table_header.edition"], ["date_work","table_header.date"], ["location_storage","table_header.location"],
+                    ["value_purchase","table_header.purchase"], ["value_current","table_header.current_value"], ["is_insured","table_header.insured_short"]
+                  ].map(([f, k]) => (
                     <th key={f} onClick={() => toggleSort(f)}
-                      className={["technique","date_work","location_storage","value_purchase","is_insured"].includes(f) ? "tb-hide" : ""}
+                      className={["technique","edition","date_work","location_storage","value_purchase","is_insured"].includes(f) ? "tb-hide" : ""}
                       style={{ textAlign: "left", padding: "10px 12px", color: sortField === f ? T.accent : T.dim, fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase", fontSize: "0.75rem", cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        {l} {sortField === f && (sortDir === "asc" ? "↑" : "↓")}
+                        {t(k)} {sortField === f && (sortDir === "asc" ? "↑" : "↓")}
                       </span>
                     </th>
                   ))}
@@ -1208,10 +1250,11 @@ export default function ArtVault() {
                       <td style={{ padding: "10px 12px", color: T.cream, fontStyle: "italic" }}>{w.artist || "—"}</td>
                     <td style={{ padding: "10px 12px" }}>{w.title || "—"}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.technique || "—"}</td>
+                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.edition || "—"}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.date_work || "—"}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.location_storage || "—"}</td>
-                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{eur(w.value_purchase)}</td>
-                    <td style={{ padding: "10px 12px", color: T.accent }}>{eur(w.value_current)}</td>
+                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{fmt(w.value_purchase)}</td>
+                    <td style={{ padding: "10px 12px", color: T.accent }}>{fmt(w.value_current)}</td>
                     <td className="tb-hide" style={{ padding: "10px 12px", textAlign: "center" }}>
                       {w.is_insured ? <CheckCircle2 size={15} color={T.green} /> : <Circle size={15} color={T.border} />}
                     </td>
@@ -1228,10 +1271,10 @@ export default function ArtVault() {
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 20px 80px" }}>
           {/* Tabs */}
           <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 28, overflowX: "auto" }}>
-            {[["info","Infos"],["photos","Photos"],["dims","Dimensions"],["finance","Finance"],["docs","Documents"]].map(([t, l]) => (
-              <button key={t} className="tab-btn" onClick={() => setFormTab(t)}
-                style={{ background: "none", border: "none", borderBottom: `2px solid ${formTab === t ? T.cyan : "transparent"}`, color: formTab === t ? T.cyan : T.dim, padding: "10px 20px", fontSize: "0.88rem", letterSpacing: "0.07em", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "color 0.18s" }}>
-                {l}
+            {[["info","form.tab_infos"],["photos","form.tab_photos"],["finance","form.tab_finance"],["dims","form.tab_dims"],["docs","form.tab_docs"]].map(([tab, key]) => (
+              <button key={tab} className="tab-btn" onClick={() => setFormTab(tab)}
+                style={{ background: "none", border: "none", borderBottom: `2px solid ${formTab === tab ? T.cyan : "transparent"}`, color: formTab === tab ? T.cyan : T.dim, padding: "10px 20px", fontSize: "0.88rem", letterSpacing: "0.07em", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "color 0.18s" }}>
+                {t(key)}
               </button>
             ))}
           </div>
@@ -1246,34 +1289,38 @@ export default function ArtVault() {
           {formTab === "info" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <Field label="Artiste *">
-                  <Input value={form.artist} onChange={v => setForm(f => ({ ...f, artist: v }))} placeholder="Nom de l'artiste" />
+                <Field label={t("form.title_label")}>
+                  <Input value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} placeholder={t("form.title_placeholder")} />
                 </Field>
-                <Field label="Titre de l'œuvre *">
-                  <Input value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} placeholder="Titre" />
+                <Field label={t("form.artist_label")}>
+                  <Input value={form.artist} onChange={v => setForm(f => ({ ...f, artist: v }))} placeholder={t("form.artist_placeholder")} />
                 </Field>
               </div>
-              <Field label="Technique / Catégorie">
-                <Input value={form.technique} onChange={v => setForm(f => ({ ...f, technique: v }))} placeholder="Huile sur toile, Aquarelle, Sculpture, Photographie…" />
-              </Field>
-              <Field label="Date de l'œuvre">
-                <Input value={form.dateWork} onChange={v => setForm(f => ({ ...f, dateWork: v }))} placeholder="ex: 1923, vers 1950, 12/03/1987" />
-              </Field>
-              <Field label="Lieu d'entreposage">
-                <Input value={form.locationStorage} onChange={v => setForm(f => ({ ...f, locationStorage: v }))} placeholder="Salon, Chambre, Cave, Coffre…" />
-              </Field>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: form.isInsured ? T.s2 : T.s3, border: `1px solid ${form.isInsured ? T.accent : T.border}`, borderRadius: 4, cursor: "pointer", transition: "all 0.18s" }}
-                onClick={() => setForm(f => ({ ...f, isInsured: !f.isInsured }))}>
-                {form.isInsured
-                  ? <CheckCircle2 size={20} color={T.accent} />
-                  : <Circle size={20} color={T.dim2} />}
-                <span style={{ fontSize: "0.95rem", userSelect: "none", color: form.isInsured ? T.accent : T.cream }}>Œuvre assurée</span>
-                {form.isInsured && <span style={{ marginLeft: "auto", color: T.accent, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4 }}><Shield size={14} /> Assurée</span>}
+              <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <Field label={t("form.technique_label")}>
+                  <Input value={form.technique} onChange={v => setForm(f => ({ ...f, technique: v }))} placeholder={t("form.technique_placeholder")} />
+                </Field>
+                <Field label={t("form.edition_label")}>
+                  <Input value={form.edition} onChange={v => setForm(f => ({ ...f, edition: v }))} placeholder={t("form.edition_placeholder")} />
+                </Field>
               </div>
-              <Field label="Notes / Provenance">
-                <Textarea value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="Provenance, historique, conditions de conservation, état…" />
+              <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+                <Field label={t("form.date_label")}>
+                  <Input value={form.dateWork} onChange={v => setForm(f => ({ ...f, dateWork: v }))} placeholder={t("form.date_placeholder")} />
+                </Field>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: form.isInsured ? T.s2 : T.s3, border: `1px solid ${form.isInsured ? T.accent : T.border}`, borderRadius: 4, cursor: "pointer", transition: "all 0.18s", marginTop: 22 }}
+                  onClick={() => setForm(f => ({ ...f, isInsured: !f.isInsured }))}>
+                  {form.isInsured
+                    ? <CheckCircle2 size={20} color={T.accent} />
+                    : <Circle size={20} color={T.dim2} />}
+                  <span style={{ fontSize: "0.95rem", userSelect: "none", color: form.isInsured ? T.accent : T.cream }}>{t("form.insured_label")}</span>
+                  {form.isInsured && <span style={{ marginLeft: "auto", color: T.accent, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4 }}><Shield size={14} /> {t("form.insured_badge")}</span>}
+                </div>
+              </div>
+              <Field label={t("form.location_label")}>
+                <Input value={form.locationStorage} onChange={v => setForm(f => ({ ...f, locationStorage: v }))} placeholder={t("form.location_placeholder")} />
               </Field>
-              <Field label="Tags">
+              <Field label={t("form.tags_label")}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 10px", background: T.s3, border: `1px solid ${T.border}`, borderRadius: 4, minHeight: 40, alignItems: "center" }}>
                   {fTags.map(t => (
                     <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: T.s2, color: T.cream, fontSize: "0.82rem", padding: "2px 8px", borderRadius: 12, border: `1px solid ${T.border}` }}>
@@ -1282,7 +1329,7 @@ export default function ArtVault() {
                     </span>
                   ))}
                   <input
-                    placeholder={fTags.length ? "Ajouter…" : "Saisir un tag et valider avec Entrée"}
+                    placeholder={fTags.length ? t("form.tags_add_placeholder") : t("form.tags_first_placeholder")}
                     style={{ flex: 1, minWidth: 120, background: "none", border: "none", color: T.cream, fontSize: "0.88rem", fontFamily: "inherit", outline: "none" }}
                     onKeyDown={e => {
                       if ((e.key === "Enter" || e.key === ",") && e.target.value.trim()) {
@@ -1295,6 +1342,9 @@ export default function ArtVault() {
                   />
                 </div>
               </Field>
+              <Field label={t("form.notes_label")}>
+                <Textarea value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} placeholder={t("form.notes_placeholder")} />
+              </Field>
             </div>
           )}
 
@@ -1302,11 +1352,11 @@ export default function ArtVault() {
           {formTab === "dims" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                <Field label="Largeur"><Input value={form.width} onChange={v => setForm(f => ({ ...f, width: v }))} type="number" placeholder="0" /></Field>
-                <Field label="Hauteur"><Input value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} type="number" placeholder="0" /></Field>
-                <Field label="Profondeur"><Input value={form.depth} onChange={v => setForm(f => ({ ...f, depth: v }))} type="number" placeholder="Optionnel" /></Field>
+                <Field label={t("form.width_label")}><Input value={form.width} onChange={v => setForm(f => ({ ...f, width: v }))} type="number" placeholder="0" /></Field>
+                <Field label={t("form.height_label")}><Input value={form.height} onChange={v => setForm(f => ({ ...f, height: v }))} type="number" placeholder="0" /></Field>
+                <Field label={t("form.depth_label")}><Input value={form.depth} onChange={v => setForm(f => ({ ...f, depth: v }))} type="number" placeholder={t("form.depth_placeholder")} /></Field>
               </div>
-              <Field label="Unité de mesure">
+              <Field label={t("form.unit_label")}>
                 <Select value={form.dimensionUnit} onChange={v => setForm(f => ({ ...f, dimensionUnit: v }))}>
                   <option value="cm">cm</option>
                   <option value="mm">mm</option>
@@ -1328,31 +1378,31 @@ export default function ArtVault() {
           {/* ── Tab: Finance ─────────────────────────────────── */}
           {formTab === "finance" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <Field label="Date d'achat">
+              <Field label={t("form.purchase_date_label")}>
                 <Input value={form.datePurchase} onChange={v => setForm(f => ({ ...f, datePurchase: v }))} type="date" />
               </Field>
-              <Field label="Lieu d'achat">
-                <Input value={form.locationPurchase} onChange={v => setForm(f => ({ ...f, locationPurchase: v }))} placeholder="Galerie, Maison de vente, Vente privée…" />
+              <Field label={t("form.purchase_location_label")}>
+                <Input value={form.locationPurchase} onChange={v => setForm(f => ({ ...f, locationPurchase: v }))} placeholder={t("form.purchase_location_placeholder")} />
               </Field>
               <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <Field label="Valeur d'achat (€)">
+                <Field label={`${t("form.purchase_value_label")} (${currency})`}>
                   <Input value={form.valuePurchase} onChange={v => setForm(f => ({ ...f, valuePurchase: v }))} type="number" placeholder="0" />
                 </Field>
-                <Field label="Valeur actuelle estimée (€)">
+                <Field label={`${t("form.current_value_label")} (${currency})`}>
                   <Input value={form.valueCurrent} onChange={v => setForm(f => ({ ...f, valueCurrent: v }))} type="number" placeholder="0" />
                 </Field>
               </div>
               {form.valuePurchase && form.valueCurrent && +form.valuePurchase > 0 && (
                 <div style={{ background: T.s3, border: `1px solid ${T.border}`, borderRadius: 4, padding: "14px 16px" }}>
-                  <Label>Évolution de valeur</Label>
+                  <Label>{t("form.value_evolution")}</Label>
                   {(() => {
                     const pct = ((+form.valueCurrent - +form.valuePurchase) / +form.valuePurchase * 100).toFixed(1);
                     const diff = +form.valueCurrent - +form.valuePurchase;
                     const isUp = diff >= 0;
                     return (
                       <div style={{ color: isUp ? T.green : T.red, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 8 }}>
-                        {isUp ? "▲" : "▼"} {Math.abs(pct)}%
-                        <span style={{ color: T.dim, fontSize: "0.88rem" }}>({isUp ? "+" : ""}{eur(diff)})</span>
+                        {isUp ? "▲" : "▼"} {Math.abs(pct)}% {t(isUp ? "form.gain" : "form.loss")}
+                        <span style={{ color: T.dim, fontSize: "0.88rem" }}>({isUp ? "+" : ""}{fmt(diff)})</span>
                       </div>
                     );
                   })()}
@@ -1367,21 +1417,21 @@ export default function ArtVault() {
               <div style={{ background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                   <FileText size={16} color={T.accent} />
-                  <span style={{ color: T.cream, fontSize: "0.9rem" }}>Expertise</span>
+                  <span style={{ color: T.cream, fontSize: "0.9rem" }}>{t("form.doc_expertise")}</span>
                 </div>
                 {fExp ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <FileText size={16} color={T.dim} />
                     <span style={{ flex: 1, color: T.cream, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.9rem" }}>{fExp.name}</span>
                     <a href={fExp._saved ? fExp.url : fExp.data} download={fExp.name} target="_blank" rel="noreferrer"
-                      style={{ color: T.accent, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> Ouvrir</a>
+                      style={{ color: T.accent, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> {t("form.doc_open")}</a>
                     <button onClick={() => setFExp(null)} style={{ background: "none", border: "none", color: T.red, cursor: "pointer", display: "flex" }}><X size={16} /></button>
                   </div>
                 ) : (
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", color: T.dim, fontSize: "0.88rem", border: `1px dashed ${T.border}`, borderRadius: 4, padding: "10px 16px", transition: "border-color 0.2s, color 0.2s" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
-                    <Plus size={15} /> Charger un PDF (max 5 MB)
+                    <Plus size={15} /> {t("form.doc_upload")}
                     <input ref={expRef} type="file" accept=".pdf,application/pdf" style={{ display: "none" }} onChange={e => addPDF(e, setFExp)} />
                   </label>
                 )}
@@ -1390,21 +1440,21 @@ export default function ArtVault() {
               <div style={{ background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, padding: 18 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                   <FileText size={16} color={T.accent} />
-                  <span style={{ color: T.cream, fontSize: "0.9rem" }}>Attestation / Certificat d'authenticité</span>
+                  <span style={{ color: T.cream, fontSize: "0.9rem" }}>{t("form.doc_certificate")}</span>
                 </div>
                 {fAtt ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <FileText size={16} color={T.dim} />
                     <span style={{ flex: 1, color: T.cream, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.9rem" }}>{fAtt.name}</span>
                     <a href={fAtt._saved ? fAtt.url : fAtt.data} download={fAtt.name} target="_blank" rel="noreferrer"
-                      style={{ color: T.accent, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> Ouvrir</a>
+                      style={{ color: T.accent, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}><Download size={13} /> {t("form.doc_open")}</a>
                     <button onClick={() => setFAtt(null)} style={{ background: "none", border: "none", color: T.red, cursor: "pointer", display: "flex" }}><X size={16} /></button>
                   </div>
                 ) : (
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", color: T.dim, fontSize: "0.88rem", border: `1px dashed ${T.border}`, borderRadius: 4, padding: "10px 16px", transition: "border-color 0.2s, color 0.2s" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
-                    <Plus size={15} /> Charger un PDF (max 5 MB)
+                    <Plus size={15} /> {t("form.doc_upload")}
                     <input ref={attRef} type="file" accept=".pdf,application/pdf" style={{ display: "none" }} onChange={e => addPDF(e, setFAtt)} />
                   </label>
                 )}
@@ -1416,7 +1466,7 @@ export default function ArtVault() {
           {formTab === "photos" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ color: T.dim, fontSize: "0.85rem" }}>
-                {fPhotos.length}/5 photos · La première sera utilisée comme vignette
+                {t("form.photos_count", { n: fPhotos.length })}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 12 }}>
                 {fPhotos.map((p, i) => (
@@ -1428,7 +1478,7 @@ export default function ArtVault() {
                     </button>
                     {i === 0 && (
                       <span style={{ position: "absolute", bottom: 5, left: 5, background: T.accent, color: T.bg, fontSize: "0.65rem", padding: "2px 6px", borderRadius: 2, fontWeight: 700 }}>
-                        Principale
+                        {t("form.photos_primary")}
                       </span>
                     )}
                   </div>
@@ -1440,13 +1490,13 @@ export default function ArtVault() {
                       onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
                       <Camera size={18} />
-                      <span>Prendre photo</span>
+                      <span>{t("form.photos_take")}</span>
                     </div>
                     <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 16px", background: T.s3, border: `2px dashed ${T.border}`, borderRadius: 6, cursor: "pointer", color: T.dim, fontSize: "0.88rem", transition: "border-color 0.2s, color 0.2s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.dim; }}>
                       <ImageIcon size={18} />
-                      <span>Choisir dans la galerie</span>
+                      <span>{t("form.photos_gallery")}</span>
                       <input ref={photoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={addPhoto} />
                     </label>
                   </div>
@@ -1462,15 +1512,16 @@ export default function ArtVault() {
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 20px 60px" }}>
           <div style={{ marginBottom: 28 }}>
             <h2 onClick={goGallery} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "2rem", fontWeight: 500, color: T.cream, lineHeight: 1.2, marginBottom: 8, cursor: "pointer" }}>
-              {detWork.title || "Sans titre"}
+              {detWork.title || t("detail.untitled")}
             </h2>
             <div style={{ color: T.accent, fontSize: "1.15rem", fontStyle: "italic", marginBottom: 10 }}>{detWork.artist}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               {detWork.technique && <span style={{ background: T.s3, border: `1px solid ${T.border}`, color: T.dim, padding: "3px 10px", borderRadius: 12, fontSize: "0.82rem" }}>{detWork.technique}</span>}
+              {detWork.edition && <span style={{ color: T.dim, fontSize: "0.88rem" }}>{t("detail.edition")} {detWork.edition}</span>}
               {detWork.date_work && <span style={{ color: T.dim, fontSize: "0.88rem", display: "flex", alignItems: "center", gap: 4 }}><Calendar size={13} /> {detWork.date_work}</span>}
               {detWork.is_insured && (
                 <span style={{ background: "#3a805020", border: `1px solid ${T.green}40`, color: T.green, padding: "3px 10px", borderRadius: 12, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 4 }}>
-                  <CheckCircle2 size={12} /> Assurée
+                  <CheckCircle2 size={12} /> {t("detail.insured")}
                 </span>
               )}
               {(detWork.tags || []).map(t => (
@@ -1519,13 +1570,13 @@ export default function ArtVault() {
 
           <div className="resp-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
             <div>
-              <div style={{ color: T.cyan, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Informations</div>
+              <div style={{ color: T.cyan, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>{t("detail.section_info")}</div>
               {[
-                ["Lieu d'entreposage", detWork.location_storage, <MapPin size={13} />],
-                ["Dimensions", (detWork.width || detWork.height) ? `${detWork.width || "?"}×${detWork.height || "?"}${detWork.depth ? `×${detWork.depth}` : ""} ${detWork.dimension_unit || "cm"}` : null, <Ruler size={13} />],
-              ].filter(([, v]) => v).map(([l, v, ico]) => (
-                <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}30`, gap: 12 }}>
-                  <span style={{ color: T.dim, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.07em" }}>{ico}{l}</span>
+                ["detail.info_location", detWork.location_storage, <MapPin size={13} />],
+                ["detail.info_dims", (detWork.width || detWork.height) ? `${detWork.width || "?"}×${detWork.height || "?"}${detWork.depth ? `×${detWork.depth}` : ""} ${detWork.dimension_unit || "cm"}` : null, <Ruler size={13} />],
+              ].filter(([, v]) => v).map(([k, v, ico]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}30`, gap: 12 }}>
+                  <span style={{ color: T.dim, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.07em" }}>{ico}{t(k)}</span>
                   <span style={{ color: T.cream, fontSize: "0.9rem", textAlign: "right" }}>{v}</span>
                 </div>
               ))}
@@ -1536,15 +1587,15 @@ export default function ArtVault() {
               )}
             </div>
             <div>
-              <div style={{ color: T.cyan, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Finance</div>
+              <div style={{ color: T.cyan, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>{t("detail.section_finance")}</div>
               {[
-                ["Date d'achat", detWork.date_purchase ? fmtDate(detWork.date_purchase) : null, <Calendar size={13} />],
-                ["Lieu d'achat", detWork.location_purchase, <MapPin size={13} />],
-                ["Valeur d'achat", detWork.value_purchase ? eur(detWork.value_purchase) : null, <Euro size={13} />],
-                ["Valeur actuelle", detWork.value_current ? eur(detWork.value_current) : null, <Euro size={13} />, true],
-              ].filter(([, v]) => v).map(([l, v, ico, gold]) => (
-                <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}30`, gap: 12 }}>
-                  <span style={{ color: T.dim, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.07em" }}>{ico}{l}</span>
+                ["detail.finance_date", detWork.date_purchase ? fmtLocale(detWork.date_purchase) : null, <Calendar size={13} />],
+                ["detail.finance_location", detWork.location_purchase, <MapPin size={13} />],
+                ["detail.finance_purchase_value", detWork.value_purchase ? fmt(detWork.value_purchase) : null, <Euro size={13} />],
+                ["detail.finance_current_value", detWork.value_current ? fmt(detWork.value_current) : null, <Euro size={13} />, true],
+              ].filter(([, v]) => v).map(([k, v, ico, gold]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${T.border}30`, gap: 12 }}>
+                  <span style={{ color: T.dim, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.07em" }}>{ico}{t(k)}</span>
                   <span style={{ color: gold ? T.accent : T.cream, fontSize: "0.9rem", fontWeight: gold ? 500 : 400 }}>{v}</span>
                 </div>
               ))}
@@ -1553,7 +1604,7 @@ export default function ArtVault() {
                 const up = +detWork.value_current >= +detWork.value_purchase;
                 return (
                   <div style={{ marginTop: 10, color: up ? T.green : T.red, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: 6 }}>
-                    {up ? "▲" : "▼"} {Math.abs(pct)}% {up ? "de plus-value" : "de moins-value"}
+                    {up ? "▲" : "▼"} {Math.abs(pct)}% {t(up ? "detail.finance_gain" : "detail.finance_loss")}
                   </div>
                 );
               })()}
@@ -1562,7 +1613,7 @@ export default function ArtVault() {
 
           {(dExp || dAtt) && (
             <div style={{ marginTop: 8, marginBottom: 24 }}>
-              <div style={{ color: T.accent, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>Documents</div>
+              <div style={{ color: T.accent, fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>{t("detail.section_docs")}</div>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {dExp && (
                   <a href={dExp.url} download={dExp.name}
@@ -1599,15 +1650,15 @@ export default function ArtVault() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400 }}>
           <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 10, padding: 32, maxWidth: 380, width: "90%", textAlign: "center" }}>
             <Trash2 size={28} color={T.red} style={{ marginBottom: 14 }} />
-            <div style={{ fontSize: "1.1rem", marginBottom: 10, fontFamily: "'Playfair Display', Georgia, serif" }}>Supprimer cette œuvre ?</div>
+            <div style={{ fontSize: "1.1rem", marginBottom: 10, fontFamily: "'Playfair Display', Georgia, serif" }}>{t("delete.title")}</div>
             <div style={{ color: T.dim, fontSize: "0.88rem", marginBottom: 26, lineHeight: 1.6 }}>
               « {detWork?.title} » — {detWork?.artist}<br />
-              <span style={{ color: T.red }}>Cette action est irréversible.</span>
+              <span style={{ color: T.red }}>{t("delete.irreversible")}</span>
             </div>
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <Btn variant="outline" onClick={() => setDelModal(false)}>Annuler</Btn>
+              <Btn variant="outline" onClick={() => setDelModal(false)}>{t("delete.cancel")}</Btn>
               <Btn variant="danger" onClick={handleDelete} sx={{ background: "#b0353520" }}>
-                <Trash2 size={14} /> Supprimer définitivement
+                <Trash2 size={14} /> {t("delete.confirm")}
               </Btn>
             </div>
           </div>
@@ -1651,22 +1702,48 @@ export default function ArtVault() {
           onClick={() => setPrefPanel(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, maxWidth: 400, width: "90%", maxHeight: "80vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-              <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.3rem", color: T.cream }}>Préférences</h2>
+              <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.3rem", color: T.cream }}>{t("prefs.title")}</h2>
               <button onClick={() => setPrefPanel(false)} style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex" }}><X size={20} /></button>
             </div>
 
             <div style={{ marginBottom: 20 }}>
-              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>À propos</div>
-              <div style={{ color: T.cream, fontSize: "0.95rem", lineHeight: 1.7 }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Application</span> ArtVault</div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Version</span> 1.0.0</div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Description</span> Catalogue de collection d'art familial</div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>Technologie</span> React · Supabase · Vite</div>
+              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("prefs.language")}</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[["fr","Français (🇫🇷)"],["en","English (🇬🇧)"]].map(([code, label]) => (
+                  <button key={code} onClick={() => setLang(code)}
+                    style={{
+                      background: lang === code ? T.accent : T.s3,
+                      border: `1px solid ${lang === code ? T.accent : T.border}`,
+                      color: lang === code ? T.bg : T.dim,
+                      borderRadius: 4, padding: "5px 12px", fontSize: "0.82rem",
+                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                    }}>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
             <div style={{ marginBottom: 20 }}>
-              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Thème</div>
+              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("prefs.currency")}</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[["EUR","EUR (€)"],["USD","USD ($)"],["CNY","CNY (¥)"]].map(([code, label]) => (
+                  <button key={code} onClick={() => setCurrency(code)}
+                    style={{
+                      background: currency === code ? T.accent : T.s3,
+                      border: `1px solid ${currency === code ? T.accent : T.border}`,
+                      color: currency === code ? T.bg : T.dim,
+                      borderRadius: 4, padding: "5px 12px", fontSize: "0.82rem",
+                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("prefs.theme")}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {themeGroups.map(g => (
                   <div key={g.label}>
@@ -1692,9 +1769,13 @@ export default function ArtVault() {
             </div>
 
             <div>
-              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Langue</div>
-              <div style={{ color: T.dim, fontSize: "0.88rem", fontStyle: "italic" }}>
-                Français (🇫🇷) · English (🇬🇧) <span style={{ color: T.dim, opacity: 0.6 }}>— à venir</span>
+              <div style={{ color: T.dim, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("prefs.about")}</div>
+              <div style={{ color: T.cream, fontSize: "0.95rem", lineHeight: 1.7 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>{t("prefs.app_name")}</span> ArtVault</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>{t("prefs.version")}</span> 1.0.0</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>{t("prefs.description")}</span> {t("prefs.app_desc")}</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>{t("prefs.tech")}</span> React · Supabase · Vite</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span style={{ color: T.dim, minWidth: 80 }}>{t("prefs.github")}</span> <a href="https://github.com/iesta/ArtVault" target="_blank" rel="noreferrer" style={{ color: T.accent, textDecoration: "none" }}>GitHub</a></div>
               </div>
             </div>
           </div>
@@ -1707,9 +1788,9 @@ export default function ArtVault() {
           onClick={() => { setShareDialog(false); setShareLink(""); setShareErr(""); }}>
           <div onClick={e => e.stopPropagation()} style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, maxWidth: 400, width: "90%", textAlign: "center" }}>
             <Share2 size={32} style={{ color: T.accent, marginBottom: 12 }} />
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.1rem", color: T.cream, marginBottom: 6 }}>Partager la collection</div>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.1rem", color: T.cream, marginBottom: 6 }}>{t("share.title")}</div>
             <div style={{ color: T.dim, fontSize: "0.85rem", marginBottom: 20, lineHeight: 1.6 }}>
-              Générez un lien privé pour partager votre collection en lecture seule.
+              {t("share.desc")}
             </div>
 
             <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: T.s2, border: `1px solid ${T.border}`, borderRadius: 6, cursor: "pointer", marginBottom: 18, textAlign: "left" }}
@@ -1718,15 +1799,15 @@ export default function ArtVault() {
                 {showValuesShare && <Check size={14} color={T.bg} />}
               </div>
               <div>
-                <div style={{ color: T.cream, fontSize: "0.9rem", fontWeight: 500 }}>Inclure les valeurs</div>
-                <div style={{ color: T.dim, fontSize: "0.8rem" }}>Prix d'achat et estimation actuelle</div>
+                <div style={{ color: T.cream, fontSize: "0.9rem", fontWeight: 500 }}>{t("share.include_values")}</div>
+                <div style={{ color: T.dim, fontSize: "0.8rem" }}>{t("share.values_hint")}</div>
               </div>
             </label>
 
             {!shareLink ? (
               <>
                 <Btn variant="primary" onClick={handleCreateShare} sx={{ width: "100%", padding: "10px 0" }}>
-                  <LinkIcon size={16} /> Générer le lien
+                  <LinkIcon size={16} /> {t("share.generate")}
                 </Btn>
                 {shareErr && <div style={{ color: T.red, fontSize: "0.82rem", marginTop: 8 }}>{shareErr}</div>}
               </>
@@ -1739,9 +1820,9 @@ export default function ArtVault() {
                     {copied ? <Check size={18} /> : <Copy size={18} />}
                   </button>
                 </div>
-                {copied && <div style={{ color: T.green, fontSize: "0.82rem" }}>Lien copié !</div>}
+                {copied && <div style={{ color: T.green, fontSize: "0.82rem" }}>{t("share.copied")}</div>}
                 <button onClick={handleRevokeShare} style={{ background: "none", border: "none", color: T.red, cursor: "pointer", fontSize: "0.85rem", fontFamily: "inherit", padding: 6 }}>
-                  Révoquer le lien
+                  {t("share.revoke")}
                 </button>
               </div>
             )}
@@ -1755,15 +1836,15 @@ export default function ArtVault() {
           onClick={() => setIosInstallModal(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, maxWidth: 360, width: "90%", textAlign: "center" }}>
             <Smartphone size={36} style={{ color: T.accent, marginBottom: 12 }} />
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.1rem", color: T.cream, marginBottom: 8 }}>Installer ArtVault</div>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "1.1rem", color: T.cream, marginBottom: 8 }}>{t("install.title")}</div>
             <div style={{ color: T.dim, fontSize: "0.88rem", lineHeight: 1.7, marginBottom: 20, textAlign: "left" }}>
-              1. Tapez sur <strong style={{ color: T.cream }}>Partager</strong> <span style={{ fontSize: "1rem" }}>⎙</span><br />
-              2. Faites défiler et tapez <strong style={{ color: T.cream }}>Sur l'écran d'accueil</strong><br />
-              3. Tapez sur <strong style={{ color: T.cream }}>Ajouter</strong>
+              {t("install.step1")} <span style={{ fontSize: "1rem" }}>⎙</span><br />
+              {t("install.step2")}<br />
+              {t("install.step3")}
             </div>
             <button onClick={() => setIosInstallModal(false)}
               style={{ background: T.accent, border: "none", color: T.bg, padding: "8px 24px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: "0.9rem", fontWeight: 600 }}>
-              Compris !
+              {t("install.got_it")}
             </button>
           </div>
         </div>

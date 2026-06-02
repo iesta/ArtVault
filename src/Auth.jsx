@@ -2,9 +2,11 @@ import { useState } from "react";
 import { supabase } from "./supabase";
 import { Mail, Lock, Loader } from "lucide-react";
 import { useTheme } from "./themes";
+import { useI18n } from "./i18n";
 
 export default function Auth() {
   const T = useTheme();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -102,9 +104,7 @@ export default function Auth() {
             fontStyle: "italic",
           }}
         >
-          {mode === "login"
-            ? "Connectez-vous à votre collection"
-            : "Créez votre compte"}
+          {t(mode === "login" ? "auth.login_title" : "auth.signup_title")}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -133,18 +133,15 @@ export default function Auth() {
                 marginBottom: 6,
               }}
             >
-              Email
+              {t("auth.email")}
             </div>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-              <Mail
-                size={15}
-                style={{ position: "absolute", left: 10, color: T.dim, pointerEvents: "none" }}
-              />
+              <Mail size={15} style={{ position: "absolute", left: 10, color: T.dim, pointerEvents: "none" }} />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="vous@exemple.com"
+                placeholder={t("auth.email_placeholder")}
                 required
                 style={{
                   width: "100%",
@@ -174,7 +171,7 @@ export default function Auth() {
                 marginBottom: 6,
               }}
             >
-              Mot de passe
+              {t("auth.password")}
             </div>
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
               <Lock
@@ -185,7 +182,7 @@ export default function Auth() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={t("auth.password_placeholder")}
                 required
                 minLength={6}
                 style={{
@@ -232,10 +229,8 @@ export default function Auth() {
           >
             {loading && <Loader size={16} style={{ animation: "spin 0.8s linear infinite" }} />}
             {loading
-              ? "Patientez…"
-              : mode === "login"
-                ? "Se connecter"
-                : "Créer le compte"}
+              ? t("auth.wait")
+              : t(mode === "login" ? "auth.login_btn" : "auth.signup_btn")}
           </button>
 
           <button
@@ -257,9 +252,7 @@ export default function Auth() {
               textUnderlineOffset: 3,
             }}
           >
-            {mode === "login"
-              ? "Pas encore de compte ? Créez-en un"
-              : "Déjà un compte ? Connectez-vous"}
+            {t(mode === "login" ? "auth.to_signup" : "auth.to_login")}
           </button>
         </form>
       </div>

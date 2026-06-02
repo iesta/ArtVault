@@ -1,16 +1,26 @@
 import { photoURL } from "./supabase";
+import { formatCurrency, loadCurrency, loadLang } from "./i18n";
+
+// Sync i18n for non-React context
+import en from "./i18n/en.json";
+import fr from "./i18n/fr.json";
+const allMsgs = { fr, en };
+const currLang = loadLang();
+const currCurrency = loadCurrency();
+const msgs = allMsgs[currLang] || fr;
+const _t = (key) => msgs[key] || fr[key] || key;
 
 const W = 793;
 const P = 52;
 
-const eur = v =>
-  v !== "" && v !== null && v !== undefined
-    ? new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(+v)
-    : "—";
+const eur = v => formatCurrency(v, currCurrency);
 
 const fmtDate = d => {
   if (!d) return "—";
-  try { return new Date(d + "T12:00:00").toLocaleDateString("fr-BE"); } catch { return d; }
+  try {
+    const locale = currCurrency === "USD" ? "en-US" : currCurrency === "CNY" ? "zh-CN" : "fr-BE";
+    return new Date(d + "T12:00:00").toLocaleDateString(locale);
+  } catch { return d; }
 };
 
 function dims(w) {
@@ -37,12 +47,12 @@ function buildPage(work, num, total) {
   }
 
   const title = document.createElement("h1");
-  title.textContent = work.title || "Sans titre";
+  title.textContent = work.title || _t("pdf.untitled");
   title.style.cssText = "font-size:22px;margin:0 0 3px;font-weight:600;color:#1e293b;";
   el.appendChild(title);
 
   const artist = document.createElement("h2");
-  artist.textContent = work.artist || "Artiste inconnu";
+  artist.textContent = work.artist || _t("pdf.unknown_artist");
   artist.style.cssText = "font-size:17px;margin:0 0 18px;font-weight:400;font-style:italic;color:#64748b;";
   el.appendChild(artist);
 
@@ -51,15 +61,16 @@ function buildPage(work, num, total) {
   el.appendChild(hr1);
 
   const rows = [
-    ["Technique", work.technique],
-    ["Date", work.date_work],
-    ["Dimensions", dims(work)],
-    ["Entreposage", work.location_storage],
-    ["Date d'achat", work.date_purchase ? fmtDate(work.date_purchase) : null],
-    ["Lieu d'achat", work.location_purchase],
-    ["Valeur d'achat", work.value_purchase ? eur(work.value_purchase) : null],
-    ["Valeur actuelle", work.value_current ? eur(work.value_current) : null],
-    ["Assurée", work.is_insured ? "Oui" : "Non"],
+    [_t("pdf.field_technique"), work.technique],
+    [_t("pdf.field_edition"), work.edition],
+    [_t("pdf.field_date"), work.date_work],
+    [_t("pdf.field_dims"), dims(work)],
+    [_t("pdf.field_storage"), work.location_storage],
+    [_t("pdf.field_purchase_date"), work.date_purchase ? fmtDate(work.date_purchase) : null],
+    [_t("pdf.field_purchase_loc"), work.location_purchase],
+    [_t("pdf.field_purchase_value"), work.value_purchase ? eur(work.value_purchase) : null],
+    [_t("pdf.field_current_value"), work.value_current ? eur(work.value_current) : null],
+    [_t("pdf.field_insured"), work.is_insured ? _t("pdf.yes") : _t("pdf.no")],
   ];
 
   const table = document.createElement("table");
@@ -102,12 +113,12 @@ function buildRecapPage(works) {
   el.style.cssText = `width:${W}px;background:#eef2f7;color:#1e293b;font-family:Georgia,'Times New Roman',serif;padding:${P}px;box-sizing:border-box;display:flex;flex-direction:column;`;
 
   const title = document.createElement("h1");
-  title.textContent = "Récapitulatif de la collection";
+  title.textContent = _t("recap.title");
   title.style.cssText = "font-size:24px;margin:0 0 4px;font-weight:600;color:#1e293b;text-align:center;";
   el.appendChild(title);
 
   const subtitle = document.createElement("div");
-  subtitle.textContent = `${works.length} œuvre${works.length > 1 ? "s" : ""}`;
+  subtitle.textContent = `${works.length} ${works.length > 1 ? _t("nav.works_plural") : _t("nav.works")}`;
   subtitle.style.cssText = "font-size:13px;color:#64748b;text-align:center;margin-bottom:22px;font-style:italic;";
   el.appendChild(subtitle);
 
@@ -116,7 +127,7 @@ function buildRecapPage(works) {
 
   const thead = document.createElement("thead");
   const hr = document.createElement("tr");
-  const headers = ["Titre", "Artiste", "Valeur actuelle", "Assurée"];
+  const headers = [_t("xls.col_title"), _t("xls.col_artist"), _t("xls.col_current_value") || _t("pdf.field_current_value"), _t("pdf.field_insured")];
   for (const h of headers) {
     const th = document.createElement("th");
     th.textContent = h;
@@ -130,10 +141,10 @@ function buildRecapPage(works) {
   for (const w of works) {
     const tr = document.createElement("tr");
     const cells = [
-      w.title || "Sans titre",
+      w.title || _t("pdf.untitled"),
       w.artist || "—",
       w.value_current ? eur(w.value_current) : "—",
-      w.is_insured ? "Oui" : "Non",
+      w.is_insured ? _t("pdf.yes") : _t("pdf.no"),
     ];
     for (const c of cells) {
       const td = document.createElement("td");

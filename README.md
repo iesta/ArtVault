@@ -55,6 +55,8 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_your_key
 | **Add / Edit** | Tabbed form (Infos, Photos, Finance, Dimensions, Documents) |
 | **Tags** | Free-form tags per artwork, add/remove inline, filter gallery by tag (AND logic) |
 | **Edition** | Track edition number (2/50, EA, HC, etc.) per artwork |
+| **URL routing** | Each artwork has a direct URL (`/item/{id}`), browser back/forward works |
+| **Prev / Next** | Navigate between artworks in the detail view with `<` `>` arrows (follows current sort/filter) |
 | **Photos** | Up to 5 per artwork, auto-compressed (1400px JPEG, 78% quality), camera capture (mobile + desktop webcam) |
 | **Documents** | Upload expertise PDFs and certificates of authenticity (max 5 MB each) |
 | **Auth** | Email/password login & signup, each user sees only their own collection |

@@ -430,8 +430,55 @@ export default function ArtVault() {
     setThumbs(map);
   }, [works]);
 
+  // ── URL sync with browser history ──────────────────────
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (screen === "detail" && detWork?.id) {
+      if (path !== `/item/${detWork.id}`)
+        window.history.replaceState(null, "", `/item/${detWork.id}`);
+    } else if (screen === "gallery" && path.startsWith("/item/")) {
+      window.history.replaceState(null, "", "/");
+    }
+  }, [screen, detWork?.id]);
+
+  // ── Handle browser back/forward ────────────────────────
+  useEffect(() => {
+    const handler = () => {
+      const m = window.location.pathname.match(/^\/item\/([\w-]+)$/);
+      if (m) {
+        const id = m[1];
+        const w = works.find(x => x.id === id);
+        if (w) openDetail(w);
+      } else if (screen === "detail") {
+        goGallery();
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [screen, works]);
+
+  // ── Direct navigation to /item/:id ─────────────────────
+  useEffect(() => {
+    if (authLoading || loading || !session) return;
+    const m = window.location.pathname.match(/^\/item\/([\w-]+)$/);
+    if (!m) return;
+    const id = m[1];
+    const w = works.find(x => x.id === id);
+    if (w) {
+      openDetail(w);
+    } else if (!loading) {
+      supabase.from("artworks").select("*").eq("id", id).single().then(({ data, error }) => {
+        if (data && !error) openDetail(data);
+      });
+    }
+  }, [session, authLoading, loading, works]);
+
   // ── Navigation ───────────────────────────────────────────────
   const goGallery = () => { setScreen("gallery"); setMenuOpen(false); };
+  const navigateDetail = dir => {
+    const target = dir === -1 ? prevWork : nextWork;
+    if (target) openDetail(target);
+  };
 
   // ── ESC key ──────────────────────────────────────────────────
   useEffect(() => {
@@ -886,6 +933,10 @@ export default function ArtVault() {
     if (typeof va === "string") { va = va.toLowerCase(); vb = vb.toLowerCase(); }
     return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
   });
+
+  const workIndex = filtered.findIndex(w => w.id === detWork?.id);
+  const prevWork = workIndex > 0 ? filtered[workIndex - 1] : null;
+  const nextWork = workIndex < filtered.length - 1 ? filtered[workIndex + 1] : null;
 
   const toggleSort = f => {
     if (sortField === f) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -1511,9 +1562,21 @@ export default function ArtVault() {
       {screen === "detail" && detWork && (
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 20px 60px" }}>
           <div style={{ marginBottom: 28 }}>
-            <h2 onClick={goGallery} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "2rem", fontWeight: 500, color: T.cream, lineHeight: 1.2, marginBottom: 8, cursor: "pointer" }}>
-              {detWork.title || t("detail.untitled")}
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <h2 onClick={goGallery} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "2rem", fontWeight: 500, color: T.cream, lineHeight: 1.2, cursor: "pointer" }}>
+                {detWork.title || t("detail.untitled")}
+              </h2>
+              <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                <button onClick={() => navigateDetail(-1)} disabled={!prevWork}
+                  style={{ background: "none", border: `1px solid ${prevWork ? T.border : "transparent"}`, color: prevWork ? T.dim : T.border, borderRadius: 4, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: prevWork ? "pointer" : "default", fontFamily: "inherit", fontSize: "1rem", transition: "all 0.15s", opacity: prevWork ? 1 : 0.3 }}>
+                  <ChevronLeft size={16} />
+                </button>
+                <button onClick={() => navigateDetail(1)} disabled={!nextWork}
+                  style={{ background: "none", border: `1px solid ${nextWork ? T.border : "transparent"}`, color: nextWork ? T.dim : T.border, borderRadius: 4, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: nextWork ? "pointer" : "default", fontFamily: "inherit", fontSize: "1rem", transition: "all 0.15s", opacity: nextWork ? 1 : 0.3 }}>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
             <div style={{ color: T.accent, fontSize: "1.15rem", fontStyle: "italic", marginBottom: 10 }}>{detWork.artist}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               {detWork.technique && <span style={{ background: T.s3, border: `1px solid ${T.border}`, color: T.dim, padding: "3px 10px", borderRadius: 12, fontSize: "0.82rem" }}>{detWork.technique}</span>}

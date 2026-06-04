@@ -1377,7 +1377,7 @@ export default function ArtVault() {
                 <tr style={{ borderBottom: `1px solid ${T.accent}40` }}>
                   <th style={{ width: 48, padding: "10px 12px 10px 4px" }}></th>
                   {[
-                    ["artist","xls.col_artist"], ["title","xls.col_title"], ["technique","table_header.technique"],
+                    ["title","xls.col_title"], ["artist","xls.col_artist"], ["technique","table_header.technique"],
                     ["edition","table_header.edition"], ["date_work","table_header.date"], ["location_storage","table_header.location"],
                     ["value_purchase","table_header.purchase"], ["value_current","table_header.current_value"], ["is_insured","table_header.insured_short"]
                   ].map(([f, k]) => (
@@ -1403,15 +1403,15 @@ export default function ArtVault() {
                           }
                         </div>
                       </td>
+                      <td style={{ padding: "10px 12px" }}>{w.title || "—"}</td>
                       <td style={{ padding: "10px 12px", color: T.cream, fontStyle: "italic" }}>{w.artist || "—"}</td>
-                    <td style={{ padding: "10px 12px" }}>{w.title || "—"}</td>
-                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.technique || "—"}</td>
-                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.edition || "—"}</td>
-                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.date_work || "—"}</td>
-                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.location_storage || "—"}</td>
-                    <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{fmt(w.value_purchase)}</td>
-                    <td style={{ padding: "10px 12px", color: T.accent }}>{fmt(w.value_current)}</td>
-                    <td className="tb-hide" style={{ padding: "10px 12px", textAlign: "center" }}>
+                      <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.technique || "—"}</td>
+                      <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.edition || "—"}</td>
+                      <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.date_work || "—"}</td>
+                      <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{w.location_storage || "—"}</td>
+                      <td className="tb-hide" style={{ padding: "10px 12px", color: T.dim }}>{fmt(w.value_purchase)}</td>
+                      <td style={{ padding: "10px 12px", color: T.accent }}>{fmt(w.value_current)}</td>
+                      <td className="tb-hide" style={{ padding: "10px 12px", textAlign: "center" }}>
                       {w.is_insured ? <CheckCircle2 size={15} color={T.green} /> : <Circle size={15} color={T.border} />}
                     </td>
                   </tr>

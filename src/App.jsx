@@ -1029,6 +1029,9 @@ export default function ArtVault() {
       .some(f => f?.toLowerCase().includes(q));
   }).sort((a, b) => {
     let va = a[sortField] ?? "", vb = b[sortField] ?? "";
+    if (sortField === "value_current" || sortField === "value_purchase") {
+      return sortDir === "asc" ? (+va || 0) - (+vb || 0) : (+vb || 0) - (+va || 0);
+    }
     if (typeof va === "string") { va = va.toLowerCase(); vb = vb.toLowerCase(); }
     return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
   });
@@ -1245,7 +1248,7 @@ export default function ArtVault() {
               )}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {[["artist","sort.artist"],["title","sort.title"],["value_current","sort.value"],["location_storage","sort.location"],["is_insured","sort.insured"],["tags","sort.tags"]].map(([f, k]) => (
+              {[["artist","sort.artist"],["title","sort.title"],["value_current","sort.value"],["value_purchase","sort.value_purchase"],["location_storage","sort.location"],["is_insured","sort.insured"],["tags","sort.tags"]].map(([f, k]) => (
                 <button key={f} onClick={() => f === "tags" ? setShowTagFilter(s => !s) : toggleSort(f)} className="ghost-btn"
                   style={{ background: "none", border: `1px solid ${f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.border}`, color: f === "tags" && showTagFilter ? T.accent : sortField === f ? T.cyan : T.dim, borderRadius: 3, padding: "5px 10px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, transition: "all 0.18s" }}>
                   {t(k)}

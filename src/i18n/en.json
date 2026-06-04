@@ -33,6 +33,7 @@
   "sort.artist": "Artist",
   "sort.title": "Title",
   "sort.value": "Value",
+  "sort.value_purchase": "Purchase",
   "sort.location": "Location",
   "sort.insured": "Insured",
   "sort.tags": "Tags",

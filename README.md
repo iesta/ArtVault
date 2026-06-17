@@ -59,6 +59,7 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_your_key
 | **Prev / Next** | Navigate between artworks in the detail view with `<` `>` arrows (follows current sort/filter) |
 | **Photos** | Up to 5 per artwork, auto-compressed (1400px JPEG, 78% quality), camera capture (mobile + desktop webcam) |
 | **Crop tool** | Fullscreen photo viewer with mouse-drag selection, repositionable rectangle, crop to JPEG |
+| **Charts** | Dashboard with 5 charts: value by technique, value by location, insured ratio, purchase vs current, top tags — accessible from hamburger menu or KPI cards |
 | **Documents** | Upload expertise PDFs and certificates of authenticity (max 5 MB each) |
 | **Auth** | Email/password login & signup, each user sees only their own collection |
 | **i18n** | French & English, switchable via Preferences panel |
@@ -94,6 +95,7 @@ artvault/
     ├── main.jsx                 # React entry point
     ├── App.jsx                  # Main app component (all UI, state, keyboard shortcuts)
     ├── Auth.jsx                 # Login / signup screen
+    ├── ChartsPage.jsx           # Charts dashboard (recharts, 5 charts)
     ├── ShareView.jsx            # Public read-only gallery (shared links)
     ├── exportPDF.js             # PDF catalog generator
     ├── supabase.js              # Supabase client init

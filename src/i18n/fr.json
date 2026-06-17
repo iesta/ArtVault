@@ -22,6 +22,7 @@
   "menu.export_pdf": "Export PDF",
   "menu.export_zip": "Export ZIP",
   "menu.export_xls": "Export XLS",
+  "menu.charts": "Graphiques",
   "menu.install_app": "Installer l'app",
   "menu.share": "Partager",
   "menu.preferences": "Préférences",
@@ -223,5 +224,19 @@
   "xls.col_photos": "Photos",
   "xls.sheet_name": "Collection",
   "xls.yes": "Oui",
-  "xls.no": "Non"
+  "xls.no": "Non",
+
+  "charts.title": "Graphiques",
+  "charts.subtitle": "Vue d'ensemble de votre collection",
+  "charts.no_data": "Pas assez de données pour ce graphique.",
+  "charts.value_by_technique": "Valeur par technique",
+  "charts.value_by_location": "Valeur par emplacement",
+  "charts.insured_ratio": "Ratio d'assurance",
+  "charts.insured": "Assurée",
+  "charts.uninsured": "Non assurée",
+  "charts.purchase_vs_current": "Achat vs valeur actuelle (top 10)",
+  "charts.purchase": "Achat",
+  "charts.current": "Actuelle",
+  "charts.top_tags": "Tags les plus utilisés",
+  "charts.count": "Nombre"
 }

@@ -22,6 +22,7 @@
   "menu.export_pdf": "Export PDF",
   "menu.export_zip": "Export ZIP",
   "menu.export_xls": "Export XLS",
+  "menu.charts": "Charts",
   "menu.install_app": "Install app",
   "menu.share": "Share",
   "menu.preferences": "Preferences",
@@ -223,5 +224,19 @@
   "xls.col_photos": "Photos",
   "xls.sheet_name": "Collection",
   "xls.yes": "Yes",
-  "xls.no": "No"
+  "xls.no": "No",
+
+  "charts.title": "Charts",
+  "charts.subtitle": "Overview of your collection",
+  "charts.no_data": "Not enough data for this chart.",
+  "charts.value_by_technique": "Value by technique",
+  "charts.value_by_location": "Value by location",
+  "charts.insured_ratio": "Insurance ratio",
+  "charts.insured": "Insured",
+  "charts.uninsured": "Uninsured",
+  "charts.purchase_vs_current": "Purchase vs current value (top 10)",
+  "charts.purchase": "Purchase",
+  "charts.current": "Current",
+  "charts.top_tags": "Top tags",
+  "charts.count": "Count"
 }

@@ -3,11 +3,12 @@ import {
   Plus, ArrowLeft, Edit2, Trash2, LayoutGrid, List, Search,
   CheckCircle2, Circle, Download, X, ChevronLeft, ChevronRight,
   Image as ImageIcon, FileText, Shield, ShieldOff, SortAsc, SortDesc,
-  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu, Settings, Smartphone, Info, FileSpreadsheet, Share2, Copy, Check, Link as LinkIcon, Crop as CropIcon
+  Calendar, MapPin, Tag, Euro, Ruler, Save, Archive, LogOut, Camera, Menu, Settings, Smartphone, Info, FileSpreadsheet, Share2, Copy, Check, Link as LinkIcon, Crop as CropIcon, BarChart, PieChart as PieChartIcon
 } from "lucide-react";
 import { supabase, photoURL, docURL } from "./supabase";
 import Auth from "./Auth";
 import ShareView from "./ShareView";
+import ChartsPage from "./ChartsPage";
 
 /* ═══════════════════════════════════════════════════════════════
    ArtVault — Catalogue de collection familiale
@@ -454,7 +455,9 @@ export default function ArtVault() {
     if (screen === "detail" && detWork?.id) {
       if (path !== `/item/${detWork.id}`)
         window.history.replaceState(null, "", `/item/${detWork.id}`);
-    } else if (screen === "gallery" && path.startsWith("/item/")) {
+    } else if (screen === "charts" && path !== "/charts") {
+      window.history.replaceState(null, "", "/charts");
+    } else if (screen === "gallery" && (path.startsWith("/item/") || path === "/charts")) {
       window.history.replaceState(null, "", "/");
     }
   }, [screen, detWork?.id]);
@@ -467,7 +470,9 @@ export default function ArtVault() {
         const id = m[1];
         const w = works.find(x => x.id === id);
         if (w) openDetail(w);
-      } else if (screen === "detail") {
+      } else if (window.location.pathname === "/charts") {
+        setScreen("charts");
+      } else if (screen === "detail" || screen === "charts") {
         goGallery();
       }
     };
@@ -478,7 +483,9 @@ export default function ArtVault() {
   // ── Direct navigation to /item/:id ─────────────────────
   useEffect(() => {
     if (authLoading || loading || !session) return;
-    const m = window.location.pathname.match(/^\/item\/([\w-]+)$/);
+    const path = window.location.pathname;
+    if (path === "/charts") { setScreen("charts"); return; }
+    const m = path.match(/^\/item\/([\w-]+)$/);
     if (!m) return;
     const id = m[1];
     const w = works.find(x => x.id === id);
@@ -1098,7 +1105,7 @@ export default function ArtVault() {
       {/* ── NAV ────────────────────────────────────────────────── */}
       <nav style={{ background: T.s1, borderBottom: `1px solid ${T.border}`, height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {(screen === "form" || screen === "detail") && (
+          {(screen === "form" || screen === "detail" || screen === "charts") && (
             <button className="ghost-btn" onClick={goGallery}
               style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", display: "flex", alignItems: "center", padding: 4, transition: "color 0.2s" }}>
               <ArrowLeft size={22} />
@@ -1125,6 +1132,11 @@ export default function ArtVault() {
           {screen === "form" && (
             <span style={{ color: T.dim, fontSize: "0.9rem" }}>
               {t(editWork ? "nav.edit_work" : "nav.new_work")}
+            </span>
+          )}
+          {screen === "charts" && (
+            <span style={{ color: T.dim, fontSize: "0.9rem" }}>
+              {t("charts.title")}
             </span>
           )}
         </div>
@@ -1191,6 +1203,10 @@ export default function ArtVault() {
                         style={{ background: "none", border: "none", color: T.dim, cursor: xlsLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: xlsLoading || works.length === 0 ? 0.5 : 1 }}>
                         <FileSpreadsheet size={16} /> {t("menu.export_xls")}
                       </button>
+                      <button className="ghost-btn menu-item" onClick={() => { setScreen("charts"); setMenuOpen(false); window.history.replaceState(null, "", "/charts"); }}
+                        style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <BarChart size={16} /> {t("menu.charts")}
+                      </button>
                       <div style={{ height: 1, background: T.border, margin: "3px 8px" }} />
                       <button className="ghost-btn menu-item" onClick={() => { if (deferredPrompt) { handleInstall(); } else { handleInstallIOS(); } setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
@@ -1220,6 +1236,36 @@ export default function ArtVault() {
                       <button className="ghost-btn menu-item" onClick={() => { setDelModal(true); setMenuOpen(false); }}
                         style={{ background: "none", border: "none", color: T.red, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
                         <Trash2 size={16} /> {t("menu.delete")}
+                      </button>
+                    </>
+                  )}
+                  {screen === "charts" && (
+                    <>
+                      <button className="ghost-btn menu-item" onClick={() => { handleExportPDF(); setMenuOpen(false); }} disabled={pdfLoading || works.length === 0}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: pdfLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: pdfLoading || works.length === 0 ? 0.5 : 1 }}>
+                        <FileText size={16} /> {t("menu.export_pdf")}
+                      </button>
+                      <button className="ghost-btn menu-item" onClick={() => { handleExport(); setMenuOpen(false); }} disabled={exporting || works.length === 0}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: exporting || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: exporting || works.length === 0 ? 0.5 : 1 }}>
+                        <Archive size={16} /> {t("menu.export_zip")}
+                      </button>
+                      <button className="ghost-btn menu-item" onClick={() => { handleExportXLS(); setMenuOpen(false); }} disabled={xlsLoading || works.length === 0}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: xlsLoading || works.length === 0 ? "not-allowed" : "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4, opacity: xlsLoading || works.length === 0 ? 0.5 : 1 }}>
+                        <FileSpreadsheet size={16} /> {t("menu.export_xls")}
+                      </button>
+                      <div style={{ height: 1, background: T.border, margin: "3px 8px" }} />
+                      <button className="ghost-btn menu-item" onClick={() => { if (deferredPrompt) { handleInstall(); } else { handleInstallIOS(); } setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <Download size={16} /> {t("menu.install_app")}
+                      </button>
+                      <button className="ghost-btn menu-item" onClick={() => { setPrefPanel(true); setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <Settings size={16} /> {t("menu.preferences")}
+                      </button>
+                      <div style={{ height: 1, background: T.border, margin: "3px 8px" }} />
+                      <button className="ghost-btn menu-item" onClick={() => { handleLogout(); setMenuOpen(false); }}
+                        style={{ background: "none", border: "none", color: T.red, cursor: "pointer", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, fontFamily: "inherit", fontSize: "0.9rem", borderRadius: 4 }}>
+                        <LogOut size={16} /> {t("menu.logout")}
                       </button>
                     </>
                   )}
@@ -1313,7 +1359,10 @@ export default function ArtVault() {
                 { key: "stats.insured", value: `${insuredCount} / ${works.length}`, icon: <Shield size={16} /> },
                 { key: "stats.artists", value: new Set(works.map(w => w.artist).filter(Boolean)).size, icon: <Tag size={16} /> },
               ].map(({ key, value, icon }) => (
-                <div key={key} style={{ background: T.s2, border: `1px solid ${key === "stats.total_value" ? T.cyan + "60" : T.border}`, borderLeft: `3px solid ${key === "stats.total_value" ? T.cyan : "transparent"}`, borderRadius: 6, padding: "12px 16px" }}>
+                <div key={key} onClick={() => { setScreen("charts"); window.history.replaceState(null, "", "/charts"); }}
+                  style={{ background: T.s2, border: `1px solid ${key === "stats.total_value" ? T.cyan + "60" : T.border}`, borderLeft: `3px solid ${key === "stats.total_value" ? T.cyan : "transparent"}`, borderRadius: 6, padding: "12px 16px", cursor: "pointer", transition: "background 0.18s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.s1}
+                  onMouseLeave={e => e.currentTarget.style.background = T.s2}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.dim, fontSize: "0.78rem", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {icon} {t(key)}
                   </div>
@@ -1420,6 +1469,11 @@ export default function ArtVault() {
             </table>
           )}
         </div>
+      )}
+
+      {/* ── CHARTS ──────────────────────────────────────────────── */}
+      {screen === "charts" && (
+        <ChartsPage works={works} fmt={fmt} T={T} t={t} />
       )}
 
       {/* ── FORM ─────────────────────────────────────────────── */}

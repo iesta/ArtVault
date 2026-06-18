@@ -13,6 +13,17 @@ const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent
   );
 };
 
+const renderLegend = ({ payload }, T) => (
+  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", justifyContent: "center", marginTop: 8, fontSize: "0.72rem", color: T.dim }}>
+    {payload?.map((entry, i) => (
+      <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ width: 9, height: 9, borderRadius: "50%", background: entry.color, flexShrink: 0 }} />
+        {entry.value}
+      </span>
+    ))}
+  </div>
+);
+
 const palette = [
   "#3fc1c9", "#f7976e", "#7c5cbf", "#4ecdc4", "#ff6b6b",
   "#45b7d1", "#96ceb4", "#ffeaa7", "#d4a5a5", "#9b59b6",
@@ -109,13 +120,14 @@ export default function ChartsPage({ works, fmt, T, t }) {
           {valueByTechnique.length === 0 ? (
             <p style={{ color: T.dim, fontSize: "0.85rem" }}>{t("charts.no_data")}</p>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
                 <Pie data={valueByTechnique} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
                   label={renderCustomLabel} labelLine={false}>
                   {valueByTechnique.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={tooltipStyle} formatter={v => fmt(v)} />
+                <Legend verticalAlign="bottom" content={e => renderLegend(e, T)} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -127,13 +139,14 @@ export default function ChartsPage({ works, fmt, T, t }) {
           {valueByLocation.length === 0 ? (
             <p style={{ color: T.dim, fontSize: "0.85rem" }}>{t("charts.no_data")}</p>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
                 <Pie data={valueByLocation} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
                   label={renderCustomLabel} labelLine={false}>
                   {valueByLocation.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={tooltipStyle} formatter={v => fmt(v)} />
+                <Legend verticalAlign="bottom" content={e => renderLegend(e, T)} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -145,7 +158,7 @@ export default function ChartsPage({ works, fmt, T, t }) {
           {insuredData[0].value === 0 && insuredData[1].value === 0 ? (
             <p style={{ color: T.dim, fontSize: "0.85rem" }}>{t("charts.no_data")}</p>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
                 <Pie data={insuredData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
                   label={renderCustomLabel} labelLine={false}>
@@ -153,7 +166,7 @@ export default function ChartsPage({ works, fmt, T, t }) {
                   <Cell fill="#ff6b6b" />
                 </Pie>
                 <Tooltip contentStyle={tooltipStyle} />
-                <Legend />
+                <Legend verticalAlign="bottom" content={e => renderLegend(e, T)} />
               </PieChart>
             </ResponsiveContainer>
           )}
